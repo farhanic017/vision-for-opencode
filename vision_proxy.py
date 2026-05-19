@@ -289,41 +289,39 @@ def call_gemini_multi(frames, prompt, model="gemini-2.5-flash"):
     return result["candidates"][0]["content"]["parts"][0]["text"]
 
 
-# ── Main ─────────────────────────────────────────────────────────────────
-def main():
-    if len(sys.argv) < 2:
-        print(
-            "Usage:  python vision_proxy.py <image_or_video_path> [prompt...]\n"
-            "First run?  python setup.py\n\n"
-            "Examples:\n"
-            "  python vision_proxy.py screenshot.png\n"
-            "  python vision_proxy.py video.mp4 \"Describe the UI flow\"\n"
-            "  python vision_proxy.py diagram.jpg \"Extract all text\""
-        )
-        sys.exit(1)
+# ── Public API ──────────────────────────────────────────────────────────
 
-    file_path = sys.argv[1]
+def analyze(file_path, prompt=""):
+    """Analyse an image or video file and return the description text.
+
+    Args:
+        file_path: Absolute path to image or video file.
+        prompt: Optional custom prompt. Auto-generated if empty.
+
+    Returns:
+        Description string from the first successful backend.
+
+    Raises:
+        FileNotFoundError: If file does not exist.
+        RuntimeError: If all backends fail.
+    """
     if not os.path.isfile(file_path):
-        print(f"File not found: {file_path}", file=sys.stderr)
-        sys.exit(1)
+        raise FileNotFoundError(f"File not found: {file_path}")
 
     vid = is_video(file_path)
 
-    # Load config now that we know we need it
     global CFG
     CFG = load_config()
 
-    prompt = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else (
-        "Describe this video in detail frame by frame — visible text, colours, layout, UI elements, actions, and scene changes. Be specific."
-        if vid else
-        "Describe this image in detail — visible text, colours, layout, UI elements. Be specific."
-    )
+    if not prompt:
+        prompt = (
+            "Describe this video in detail frame by frame — visible text, colours, layout, UI elements, actions, and scene changes. Be specific."
+            if vid else
+            "Describe this image in detail — visible text, colours, layout, UI elements. Be specific."
+        )
 
-    # ── Video path ───────────────────────────────────────────────────
     if vid:
-        print("  Extracting keyframes from video…", file=sys.stderr)
         frames = extract_video_frames(file_path, max_frames=8)
-        print(f"  Extracted {len(frames)} frame(s)", file=sys.stderr)
 
         strategies = [
             ("\u2606 Gemini 2.5 Flash", lambda: call_gemini_multi(frames, prompt, "gemini-2.5-flash")),
@@ -339,8 +337,6 @@ def main():
             ("\u2605 Llama 3.2 90B Vision", lambda: call_openrouter_multi(frames, prompt, "meta-llama/llama-3.2-90b-vision-instruct")),
             ("\u2605 Qwen VL 8B", lambda: call_openrouter_multi(frames, prompt, "qwen/qwen3-vl-8b-instruct")),
         ]
-
-    # ── Image path ───────────────────────────────────────────────────
     else:
         data, mime = resize_image(file_path, 1024)
         img_b64 = b64(data)
@@ -360,20 +356,47 @@ def main():
             ("\u2605 Qwen VL 8B", lambda: call_openrouter(img_b64, mime, prompt, "qwen/qwen3-vl-8b-instruct")),
         ]
 
+    last_error = ""
     for name, fn in strategies:
         try:
             text = fn()
             if text and text.strip():
-                print(text)
-                return
+                return text
         except Exception as e:
             msg = str(e)
             if hasattr(e, "code"):
                 msg = f"HTTP {e.code}"
-            print(f"  [{name} skipped — {msg}]", file=sys.stderr)
+            last_error = msg
 
-    print("All vision backends failed.", file=sys.stderr)
-    sys.exit(1)
+    raise RuntimeError(f"All vision backends failed. Last error: {last_error}")
+
+
+# ── CLI entry point ─────────────────────────────────────────────────────
+
+def main():
+    if len(sys.argv) < 2:
+        print(
+            "Usage:  python vision_proxy.py <image_or_video_path> [prompt...]\n"
+            "First run?  python setup.py\n\n"
+            "Examples:\n"
+            "  python vision_proxy.py screenshot.png\n"
+            "  python vision_proxy.py video.mp4 \"Describe the UI flow\"\n"
+            "  python vision_proxy.py diagram.jpg \"Extract all text\""
+        )
+        sys.exit(1)
+
+    file_path = sys.argv[1]
+    prompt = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else ""
+
+    try:
+        result = analyze(file_path, prompt)
+        print(result)
+    except FileNotFoundError as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
+    except RuntimeError as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

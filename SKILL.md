@@ -24,19 +24,35 @@ triggers:
 # opencode-vision
 
 Brings image & video analysis to any opencode model — even ones without
-built-in vision (e.g. big-pickle, DeepSeek).
+built-in vision (e.g. big-pickle, DeepSeek, local models).
 
 ## How it works
 
 1. The user provides a path to an image or video file.
-2. This script extracts content (keyframes for video, single frame for images).
-3. It sends the content through a chain of 12 vision backends (free first,
-   then paid fallbacks) until one succeeds.
+2. This script extracts content (keyframes for video, resized frame for images).
+3. It sends the content through a chain of 12 vision backends until one succeeds.
 4. The backend returns a text description of what it "sees".
+
+## Backend chain (free first, paid fallback)
+
+| # | Model | Cost |
+|---|-------|------|
+| 1 | Gemini 2.5 Flash | Free |
+| 2 | Gemini 2.0 Flash | Free |
+| 3 | NVIDIA Nemotron Omni | Free |
+| 4 | Gemma 4 26B | Free |
+| 5 | NVIDIA Nemotron VL | Free |
+| 6 | OpenRouter free router | Free |
+| 7 | GPT-4o | Paid |
+| 8 | GPT-4o-mini | Cheap |
+| 9 | Claude 3.5 Sonnet | Paid |
+| 10 | Claude 3 Haiku | Cheap |
+| 11 | Llama 3.2 90B Vision | Paid |
+| 12 | Qwen VL 8B | Cheap |
 
 ## First run
 
-The user must run `setup.py` once to add their API keys:
+Run `setup.py` once to add API keys:
 
     python path/to/vision/setup.py
 
@@ -64,6 +80,12 @@ When the user asks you to look at an image or video, run:
 - The script prints the description to stdout. Return it to the user.
 - For videos, it extracts up to 8 evenly-spaced keyframes via ffmpeg.
 
+## MCP mode
+
+The server can also be run as an MCP server (via `vision_mcp_server.py`),
+exposing `analyze_image` and `analyze_video` as native tools. Add it to
+`opencode.jsonc` as an MCP server instead of a skill if you prefer.
+
 ## Installation
 
-See **[README.md](README.md)** for adding this as a skill to opencode.jsonc.
+See **[README.md](README.md)** for all integration methods.

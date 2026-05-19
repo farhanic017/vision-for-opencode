@@ -4,29 +4,29 @@
 
 **Image & video analysis for AI coding assistants that don't have eyes.**
 
-Opencode-vision is a drop-in skill that lets any opencode model — including
-`big-pickle`, `DeepSeek`, or local models — describe images and videos by
-routing them through external vision-capable models.
+Opencode-vision lets any AI model — including local models, free APIs, or
+models without built-in vision (like `big-pickle`, `DeepSeek`) — describe
+images and videos by routing them through 12 external vision backends.
 
 ## Features
 
 - **Images** — PNG, JPG, WebP, BMP, animated GIF
 - **Videos** — MP4, WebM, MOV, AVI, MKV, FLV, WMV, M4V (via ffmpeg keyframe extraction)
-- **12 fallback backends** — free models first, then paid models for reliability
-- **Zero hardcoded secrets** — API keys live in `config.json` (gitignored) or env vars
-- **Secure** — your keys never leave your machine except to the API provider you chose
-- **Works anywhere** — opencode, Claude Code, Cursor, or plain terminal
+- **12 fallback backends** — 6 free models first, then 6 paid models for reliability
+- **Zero hardcoded secrets** — API keys in `config.json` (gitignored) or env vars
+- **Works everywhere** — CLI, MCP server, opencode skill, or direct Python import
 
 ## Quick start
 
 ```bash
-# 1. Clone or copy this folder anywhere
-git clone https://github.com/<your-username>/opencode-vision.git
+# 1. Clone
+git clone https://github.com/farhanic017/vision-for-opencode.git
+cd vision-for-opencode
 
-# 2. Install dependencies
+# 2. Install deps
 pip install pillow
 
-# 3. Run the setup wizard
+# 3. Run setup (adds your API keys)
 python setup.py
 
 # 4. Analyse anything
@@ -34,37 +34,157 @@ python vision_proxy.py screenshot.png
 python vision_proxy.py demo.mp4 "Describe the UI flow"
 ```
 
-### Add to opencode
+## Vision backends
 
-Add this to your `opencode.jsonc` under `skills.paths`:
+The tool chains through **6 free models** first, then **6 paid models** as fallback.
+It stops at the first backend that returns a result.
+
+| # | Tier | Model | Provider | Cost |
+|---|------|-------|----------|------|
+| 1 | ☆ | **Gemini 2.5 Flash** | Google (direct) | Free tier |
+| 2 | ☆ | Gemini 2.0 Flash | Google (direct) | Free tier |
+| 3 | ☆ | NVIDIA Nemotron Omni | OpenRouter | Free |
+| 4 | ☆ | Gemma 4 26B | OpenRouter | Free |
+| 5 | ☆ | NVIDIA Nemotron VL | OpenRouter | Free |
+| 6 | ☆ | OpenRouter free router | OpenRouter | Free (any available model) |
+| 7 | ★ | **GPT-4o** | OpenRouter | Paid (~$0.01/image) |
+| 8 | ★ | GPT-4o-mini | OpenRouter | Cheap (~$0.001/image) |
+| 9 | ★ | Claude 3.5 Sonnet | OpenRouter | Paid |
+| 10 | ★ | Claude 3 Haiku | OpenRouter | Cheap |
+| 11 | ★ | Llama 3.2 90B Vision | OpenRouter | Paid |
+| 12 | ★ | Qwen VL 8B | OpenRouter | Cheap (~$0.0001/image) |
+
+> The paid backends only try if your OpenRouter account has billing configured.
+> If you only have a free OpenRouter key, the first 6 free models will still work.
+
+## Getting API keys
+
+You need at least **one** of these:
+
+| Key | Get it | Powers |
+|-----|--------|--------|
+| **Gemini API key** | https://aistudio.google.com/apikey | Backends 1–2 (native image + video, free tier) |
+| **OpenRouter API key** | https://openrouter.ai/keys | Backends 3–12 (free + paid vision models) |
+
+Run `python setup.py` — it validates each key before saving.
+
+## Integration guides
+
+### 1. CLI (any terminal)
+
+Works with any AI coding assistant that can run shell commands.
+
+```bash
+python /path/to/vision_proxy.py image.png
+python /path/to/vision_proxy.py video.mp4 "Describe the gameplay"
+```
+
+Your AI just needs to call this as a bash/terminal command.
+
+### 2. MCP server (OpenCode, Claude Desktop, Cursor, Windsurf, Continue.dev)
+
+Add the MCP server to your client's config. This exposes `analyze_image` and
+`analyze_video` as first-class MCP tools that any agent can call directly.
+
+#### OpenCode (`opencode.jsonc`)
+
+```jsonc
+{
+  "mcp": {
+    "opencode-vision": {
+      "type": "local",
+      "command": ["python", "path/to/vision_mcp_server.py"],
+      "enabled": true
+    }
+  }
+}
+```
+
+#### Claude Desktop (`claude_desktop_config.json`)
+
+```json
+{
+  "mcpServers": {
+    "opencode-vision": {
+      "command": "python",
+      "args": ["path/to/vision_mcp_server.py"]
+    }
+  }
+}
+```
+
+#### Cursor
+
+In Cursor's MCP server settings:
+
+```
+Name: opencode-vision
+Type: command
+Command: python path/to/vision_mcp_server.py
+```
+
+Once added, your AI can call `analyze_image` or `analyze_video` with any
+file path — no shell commands needed.
+
+### 3. OpenCode skill
+
+Add to your `opencode.jsonc` under `skills.paths`:
 
 ```jsonc
 {
   "skills": {
     "paths": [
-      "path/to/vision-for-open-code"
+      "path/to/vision-for-opencode"
     ]
   }
 }
 ```
 
-Now your opencode AI will automatically offer to analyse images and videos
-when you ask it to "look at" something.
+Now when you ask your AI to "look at this image" or "analyse this video",
+the skill activates automatically and the AI knows to use `vision_proxy.py`.
 
-> **Tip**: If you use the [skill-dispatcher](https://github.com/farhanic017/dynamic-skill-loader-for-opencode),
-> point it at this folder and it will load the skill on-demand, keeping
-> your startup fast.
+> **Tip**: Combine with the [skill-dispatcher](https://github.com/farhanic017/dynamic-skill-loader-for-opencode)
+> for on-demand loading.
 
-## Getting API keys
+### 4. Local models (Ollama, LM Studio, llama.cpp)
 
-You need at least one of these (both are free to start):
+Local models don't have vision hardware. **This tool is designed for exactly
+this case.** The AI runs locally, but calling `vision_proxy.py` sends the
+image/video to cloud vision APIs for analysis and returns a text description
+that your local model can read.
 
-| Provider | Get key | Used for |
-|---|---|---|
-| **Gemini** | https://aistudio.google.com/apikey | Images + video (native support, free tier) |
-| **OpenRouter** | https://openrouter.ai/keys | All other backends (has free + paid models) |
+Works identically with any local model in any MCP client:
 
-Run `python setup.py` to enter them — it validates each key before saving.
+```jsonc
+{
+  "model": "ollama/llama3.2",
+  "mcp": {
+    "opencode-vision": {
+      "type": "local",
+      "command": ["python", "path/to/vision_mcp_server.py"],
+      "enabled": true
+    }
+  }
+}
+```
+
+### 5. Python import (programmatic)
+
+```python
+from vision_proxy import analyze
+
+# Analyse an image
+description = analyze("screenshot.png")
+print(description)
+
+# Analyse a video with custom prompt
+description = analyze("demo.mp4", "Describe the UI flow step by step")
+print(description)
+
+# Analyse with custom prompt
+description = analyze("diagram.jpg", "Extract all visible text and explain the architecture")
+print(description)
+```
 
 ## How it works
 
@@ -72,55 +192,57 @@ Run `python setup.py` to enter them — it validates each key before saving.
 User: "What's in this image?"
         │
         ▼
-  opencode model (no vision)
+  AI model (no vision)
         │
         ▼
-  vision_proxy.py <image.png>
+  CLI / MCP / Skill
+        │
+        ▼
+  vision_proxy.py analyze()
         │
         ├── Images → resize to 1024px
         └── Videos → ffmpeg extracts 8 keyframes
         │
         ▼
-  Send to first working backend:
-  Free backends (☆):
-    1. Gemini 2.5 Flash       — native video, free tier
-    2. Gemini 2.0 Flash       — fallback Gemini
-    3. NVIDIA Nemotron Omni   — free OpenRouter
-    4. Gemma 4 26B            — free OpenRouter
-    5. NVIDIA Nemotron VL     — free OpenRouter
-    6. OpenRouter free        — any free model
-  Paid backends (★, skipped if OpenRouter key has no billing):
-    7. GPT-4o                 — OpenAI's best vision
-    8. GPT-4o-mini            — cheap & fast
-    9. Claude 3.5 Sonnet      — Anthropic
-   10. Claude 3 Haiku         — cheap & fast
-   11. Llama 3.2 90B Vision   — Meta
-   12. Qwen VL 8B             — cheap & capable
+  Try 12 backends in order:
+    ☆ 1. Gemini 2.5 Flash      (free, best quality)
+    ☆ 2. Gemini 2.0 Flash      (free fallback)
+    ☆ 3. NVIDIA Nemotron Omni  (free)
+    ☆ 4. Gemma 4 26B           (free)
+    ☆ 5. NVIDIA Nemotron VL    (free)
+    ☆ 6. OpenRouter free       (free catch-all)
+    ★ 7. GPT-4o                (paid, best reliability)
+    ★ 8. GPT-4o-mini           (cheap paid)
+    ★ 9. Claude 3.5 Sonnet     (paid)
+    ★10. Claude 3 Haiku        (cheap paid)
+    ★11. Llama 3.2 90B Vision  (paid)
+    ★12. Qwen VL 8B            (cheap paid, last resort)
         │
         ▼
   Returns text description → model reads it to you
 ```
 
-## Requirements
-
-- Python 3.8+
-- `pillow` (for image resize/resample)
-- `ffmpeg` (for video keyframe extraction — [download](https://ffmpeg.org/download.html))
-
 ## File structure
 
 ```
-vision-for-open-code/
-├── README.md              # This file
-├── SKILL.md               # opencode skill definition
-├── vision_proxy.py        # Main analysis script
-├── setup.py               # First-run API key wizard
-├── config.json.example    # Example config (safe to commit)
-├── config.json            # Your actual keys (gitignored)
-├── requirements.txt       # pip dependencies
-├── .gitignore             # Ignores config.json, __pycache__
-└── LICENSE                # GPL-3.0
+vision-for-opencode/
+├── README.md                 # This file
+├── SKILL.md                  # opencode skill definition
+├── vision_proxy.py           # Core analysis engine (CLI + Python API)
+├── vision_mcp_server.py      # MCP server wrapper (stdio JSON-RPC)
+├── setup.py                  # First-run API key wizard
+├── config.json.example       # Example config (safe to commit)
+├── config.json               # Your actual keys (gitignored)
+├── requirements.txt          # pip dependencies
+├── .gitignore                # Ignores config.json, __pycache__
+└── LICENSE                   # GPL-3.0
 ```
+
+## Requirements
+
+- **Python 3.8+**
+- **`pillow`** — image resize/resample (`pip install pillow`)
+- **`ffmpeg`** — video keyframe extraction ([download](https://ffmpeg.org/download.html))
 
 ## Security
 
