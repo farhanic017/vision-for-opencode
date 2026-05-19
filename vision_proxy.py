@@ -37,9 +37,17 @@ import subprocess
 import tempfile
 import shutil
 
-# ── Output: force UTF-8 ──────────────────────────────────────────────────
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+# ── Output: force UTF-8 (safe wrap, handles piped/closed streams) ──────
+if sys.stdout is not None and hasattr(sys.stdout, 'buffer') and sys.stdout.buffer is not None:
+    try:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    except (ValueError, TypeError, AttributeError):
+        pass
+if sys.stderr is not None and hasattr(sys.stderr, 'buffer') and sys.stderr.buffer is not None:
+    try:
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+    except (ValueError, TypeError, AttributeError):
+        pass
 
 # ── Config loader ────────────────────────────────────────────────────────
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
@@ -59,12 +67,14 @@ def load_config():
                     keys[k] = cfg.get(k)
         except (json.JSONDecodeError, IOError):
             pass
-    missing = [k for k, v in keys.items() if not v]
-    if missing:
+    present = [k for k, v in keys.items() if v]
+    if not present:
         print(
-            f"[ERROR] Missing API key(s): {', '.join(missing)}\n"
-            f"  Run setup.py to configure:  python setup.py\n"
-            f"  Or set environment variables:  $env:{missing[0]}='your-key'",
+            "[ERROR] No API keys configured.\n"
+            "  Run setup.py to configure:  python setup.py\n"
+            "  Or set environment variables:\n"
+            "    $env:GEMINI_API_KEY='your-key'\n"
+            "    $env:OPENROUTER_API_KEY='your-key'",
             file=sys.stderr,
         )
         sys.exit(1)

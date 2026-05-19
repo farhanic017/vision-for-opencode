@@ -36,11 +36,21 @@ import io
 import traceback
 import argparse
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import vision_proxy as vp
+# Safe stderr output at module level (not wrapped, to avoid pipe issues)
+_SAFE_STDERR = sys.stderr
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+# Set up paths
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, SCRIPT_DIR)
+
+# Lazy import — loaded on first use, not at module level
+_vp = None
+def _get_vp():
+    global _vp
+    if _vp is None:
+        import vision_proxy
+        _vp = vision_proxy
+    return _vp
 
 TOOLS = {
     "analyze_image": {
@@ -71,6 +81,7 @@ TOOLS = {
 
 
 def handle_tool_call(name, args):
+    vp = _get_vp()
     tool_map = {
         "analyze_image": vp.analyze,
         "analyze_video": vp.analyze,
@@ -232,10 +243,9 @@ def main():
     args = parser.parse_args()
 
     if args.http:
-        port = args.http if args.http is True else 3789
-        sys.stderr.write(f"Starting HTTP MCP server on port {port}...\n")
-        sys.stderr.flush()
-        run_http(port)
+        _SAFE_STDERR.write(f"Starting HTTP MCP server on port {args.http}...\n")
+        _SAFE_STDERR.flush()
+        run_http(args.http)
     else:
         run_stdio()
 
