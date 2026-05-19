@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
 """
 vision_proxy.py — Image & video analysis for AI models without native vision.
+Copyright (C) 2026 Farhan Dhrubo
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
 Handles:
   - Images  (png, jpg, webp, bmp, gif)
   - Videos  (mp4, webm, mov, avi, mkv, flv, wmv, m4v) via ffmpeg keyframe extraction
 
-Chains through multiple vision backends until one succeeds:
-  Gemini 2.5 Flash → Gemini 2.0 Flash → NVIDIA Nemotron Omni → Gemma 4 26B →
-  NVIDIA Nemotron VL → Qwen VL 8B → OpenRouter free router
+Chains through free backends first, then paid fallbacks:
+  Free:   Gemini 2.5 Flash → Gemini 2.0 Flash → NVIDIA Nemotron Omni →
+          Gemma 4 26B → NVIDIA Nemotron VL → OpenRouter free
+  Paid:   GPT-4o → GPT-4o-mini → Claude 3.5 Sonnet → Claude 3 Haiku →
+          Llama 3.2 90B Vision → Qwen VL 8B
 
 Usage:
   python vision_proxy.py <image_or_video_path> [prompt text...]
@@ -318,13 +326,18 @@ def main():
         print(f"  Extracted {len(frames)} frame(s)", file=sys.stderr)
 
         strategies = [
-            ("Gemini 2.5 Flash", lambda: call_gemini_multi(frames, prompt, "gemini-2.5-flash")),
-            ("Gemini 2.0 Flash", lambda: call_gemini_multi(frames, prompt, "gemini-2.0-flash")),
-            ("NVIDIA Nemotron Omni", lambda: call_openrouter_multi(frames, prompt, "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free")),
-            ("Gemma 4 26B", lambda: call_openrouter_multi(frames, prompt, "google/gemma-4-26b-a4b-it:free")),
-            ("NVIDIA Nemotron VL", lambda: call_openrouter_multi(frames, prompt, "nvidia/nemotron-nano-12b-v2-vl:free")),
-            ("Qwen VL 8B", lambda: call_openrouter_multi(frames, prompt, "qwen/qwen3-vl-8b-instruct")),
-            ("OpenRouter free", lambda: call_openrouter_multi(frames, prompt, "openrouter/free")),
+            ("\u2606 Gemini 2.5 Flash", lambda: call_gemini_multi(frames, prompt, "gemini-2.5-flash")),
+            ("\u2606 Gemini 2.0 Flash", lambda: call_gemini_multi(frames, prompt, "gemini-2.0-flash")),
+            ("\u2606 NVIDIA Nemotron Omni", lambda: call_openrouter_multi(frames, prompt, "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free")),
+            ("\u2606 Gemma 4 26B", lambda: call_openrouter_multi(frames, prompt, "google/gemma-4-26b-a4b-it:free")),
+            ("\u2606 NVIDIA Nemotron VL", lambda: call_openrouter_multi(frames, prompt, "nvidia/nemotron-nano-12b-v2-vl:free")),
+            ("\u2606 OpenRouter free", lambda: call_openrouter_multi(frames, prompt, "openrouter/free")),
+            ("\u2605 GPT-4o", lambda: call_openrouter_multi(frames, prompt, "openai/gpt-4o")),
+            ("\u2605 GPT-4o-mini", lambda: call_openrouter_multi(frames, prompt, "openai/gpt-4o-mini")),
+            ("\u2605 Claude 3.5 Sonnet", lambda: call_openrouter_multi(frames, prompt, "anthropic/claude-3.5-sonnet")),
+            ("\u2605 Claude 3 Haiku", lambda: call_openrouter_multi(frames, prompt, "anthropic/claude-3-haiku")),
+            ("\u2605 Llama 3.2 90B Vision", lambda: call_openrouter_multi(frames, prompt, "meta-llama/llama-3.2-90b-vision-instruct")),
+            ("\u2605 Qwen VL 8B", lambda: call_openrouter_multi(frames, prompt, "qwen/qwen3-vl-8b-instruct")),
         ]
 
     # ── Image path ───────────────────────────────────────────────────
@@ -333,13 +346,18 @@ def main():
         img_b64 = b64(data)
 
         strategies = [
-            ("Gemini 2.5 Flash", lambda: call_gemini(img_b64, mime, prompt, "gemini-2.5-flash")),
-            ("Gemini 2.0 Flash", lambda: call_gemini(img_b64, mime, prompt, "gemini-2.0-flash")),
-            ("NVIDIA Nemotron Omni", lambda: call_openrouter(img_b64, mime, prompt, "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free")),
-            ("NVIDIA Nemotron VL", lambda: call_openrouter(img_b64, mime, prompt, "nvidia/nemotron-nano-12b-v2-vl:free")),
-            ("Gemma 4 26B", lambda: call_openrouter(img_b64, mime, prompt, "google/gemma-4-26b-a4b-it:free")),
-            ("Qwen VL 8B", lambda: call_openrouter(img_b64, mime, prompt, "qwen/qwen3-vl-8b-instruct")),
-            ("OpenRouter free", lambda: call_openrouter(img_b64, mime, prompt, "openrouter/free")),
+            ("\u2606 Gemini 2.5 Flash", lambda: call_gemini(img_b64, mime, prompt, "gemini-2.5-flash")),
+            ("\u2606 Gemini 2.0 Flash", lambda: call_gemini(img_b64, mime, prompt, "gemini-2.0-flash")),
+            ("\u2606 NVIDIA Nemotron Omni", lambda: call_openrouter(img_b64, mime, prompt, "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free")),
+            ("\u2606 NVIDIA Nemotron VL", lambda: call_openrouter(img_b64, mime, prompt, "nvidia/nemotron-nano-12b-v2-vl:free")),
+            ("\u2606 Gemma 4 26B", lambda: call_openrouter(img_b64, mime, prompt, "google/gemma-4-26b-a4b-it:free")),
+            ("\u2606 OpenRouter free", lambda: call_openrouter(img_b64, mime, prompt, "openrouter/free")),
+            ("\u2605 GPT-4o", lambda: call_openrouter(img_b64, mime, prompt, "openai/gpt-4o")),
+            ("\u2605 GPT-4o-mini", lambda: call_openrouter(img_b64, mime, prompt, "openai/gpt-4o-mini")),
+            ("\u2605 Claude 3.5 Sonnet", lambda: call_openrouter(img_b64, mime, prompt, "anthropic/claude-3.5-sonnet")),
+            ("\u2605 Claude 3 Haiku", lambda: call_openrouter(img_b64, mime, prompt, "anthropic/claude-3-haiku")),
+            ("\u2605 Llama 3.2 90B Vision", lambda: call_openrouter(img_b64, mime, prompt, "meta-llama/llama-3.2-90b-vision-instruct")),
+            ("\u2605 Qwen VL 8B", lambda: call_openrouter(img_b64, mime, prompt, "qwen/qwen3-vl-8b-instruct")),
         ]
 
     for name, fn in strategies:

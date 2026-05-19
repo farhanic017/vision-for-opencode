@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """
 setup.py — First-run configuration wizard for opencode-vision.
+Copyright (C) 2026 Farhan Dhrubo
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
 Guides you through adding API keys so vision_proxy.py can analyse
 images and videos through free & paid vision backends.

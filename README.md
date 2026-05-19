@@ -1,5 +1,7 @@
 # opencode-vision
 
+> Created by [Farhan Dhrubo](https://github.com/farhanic017) — [Submit an issue](https://github.com/farhanic017/vision-for-opencode/issues)
+
 **Image & video analysis for AI coding assistants that don't have eyes.**
 
 Opencode-vision is a drop-in skill that lets any opencode model — including
@@ -10,8 +12,7 @@ routing them through external vision-capable models.
 
 - **Images** — PNG, JPG, WebP, BMP, animated GIF
 - **Videos** — MP4, WebM, MOV, AVI, MKV, FLV, WMV, M4V (via ffmpeg keyframe extraction)
-- **7 fallback backends** — chains through Gemini 2.5 Flash → 2.0 Flash →
-  NVIDIA Nemotron → Gemma 4 → Qwen VL → OpenRouter free until one works
+- **12 fallback backends** — free models first, then paid models for reliability
 - **Zero hardcoded secrets** — API keys live in `config.json` (gitignored) or env vars
 - **Secure** — your keys never leave your machine except to the API provider you chose
 - **Works anywhere** — opencode, Claude Code, Cursor, or plain terminal
@@ -56,12 +57,12 @@ when you ask it to "look at" something.
 
 ## Getting API keys
 
-You need at least one of these (both are free):
+You need at least one of these (both are free to start):
 
 | Provider | Get key | Used for |
 |---|---|---|
-| **Gemini** | https://aistudio.google.com/apikey | Images + video (native support) |
-| **OpenRouter** | https://openrouter.ai/keys | Free vision model fallback |
+| **Gemini** | https://aistudio.google.com/apikey | Images + video (native support, free tier) |
+| **OpenRouter** | https://openrouter.ai/keys | All other backends (has free + paid models) |
 
 Run `python setup.py` to enter them — it validates each key before saving.
 
@@ -81,13 +82,20 @@ User: "What's in this image?"
         │
         ▼
   Send to first working backend:
-    1. Gemini 2.5 Flash  (best, native video)
-    2. Gemini 2.0 Flash
-    3. NVIDIA Nemotron Omni (free)
-    4. Gemma 4 26B (free)
-    5. NVIDIA Nemotron VL (free)
-    6. Qwen VL 8B
-    7. OpenRouter free (last resort)
+  Free backends (☆):
+    1. Gemini 2.5 Flash       — native video, free tier
+    2. Gemini 2.0 Flash       — fallback Gemini
+    3. NVIDIA Nemotron Omni   — free OpenRouter
+    4. Gemma 4 26B            — free OpenRouter
+    5. NVIDIA Nemotron VL     — free OpenRouter
+    6. OpenRouter free        — any free model
+  Paid backends (★, skipped if OpenRouter key has no billing):
+    7. GPT-4o                 — OpenAI's best vision
+    8. GPT-4o-mini            — cheap & fast
+    9. Claude 3.5 Sonnet      — Anthropic
+   10. Claude 3 Haiku         — cheap & fast
+   11. Llama 3.2 90B Vision   — Meta
+   12. Qwen VL 8B             — cheap & capable
         │
         ▼
   Returns text description → model reads it to you
@@ -125,4 +133,9 @@ vision-for-open-code/
 
 ## License
 
-GPL-3.0 — see [LICENSE](LICENSE).
+GNU General Public License v3.0 — see [LICENSE](./LICENSE).
+
+This program is free software: you can redistribute and/or modify it under the terms of the GPLv3.
+Modified versions must be licensed under GPLv3 with clear attribution to the original author.
+
+© 2026 Farhan Dhrubo.

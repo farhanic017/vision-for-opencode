@@ -5,8 +5,10 @@ description: >
   Extracts text, UI elements, colours, layout, actions, and scene changes
   from image files (png, jpg, webp, bmp, gif) and video files
   (mp4, webm, mov, avi, mkv, flv, wmv, m4v) by routing them through
-  external vision-capable models (Gemini, OpenRouter free tier, etc.).
+  12 vision backends — free models first (Gemini, NVIDIA, Gemma 4),
+  then paid models (GPT-4o, Claude, Llama, Qwen VL) via OpenRouter.
 triggers:
+  - opencode-vision
   - vision
   - image
   - video
@@ -28,9 +30,8 @@ built-in vision (e.g. big-pickle, DeepSeek).
 
 1. The user provides a path to an image or video file.
 2. This script extracts content (keyframes for video, single frame for images).
-3. It sends the content through a chain of vision-capable backends until one
-   succeeds: Gemini 2.5 Flash → Gemini 2.0 Flash → NVIDIA Nemotron Omni →
-   Gemma 4 26B → NVIDIA Nemotron VL → Qwen VL 8B → OpenRouter free.
+3. It sends the content through a chain of 12 vision backends (free first,
+   then paid fallbacks) until one succeeds.
 4. The backend returns a text description of what it "sees".
 
 ## First run
