@@ -20,10 +20,18 @@ What it does:
 import argparse
 import json
 import os
+import io
 import shutil
 import subprocess
 import sys
 import urllib.request
+
+# Force UTF-8 output (handles Windows cp1252 box-drawing chars)
+if sys.stdout is not None and hasattr(sys.stdout, 'buffer') and sys.stdout.buffer is not None:
+    try:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    except (ValueError, TypeError, AttributeError):
+        pass
 
 REPO_URL = "https://github.com/farhanic017/vision-tool.git"
 REPO_NAME = "vision-tool"

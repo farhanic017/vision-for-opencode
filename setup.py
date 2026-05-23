@@ -19,10 +19,18 @@ Usage:
 import json
 import os
 import sys
+import io
 import urllib.request
 import urllib.error
 import getpass
 import subprocess
+
+# Force UTF-8 output (handles Windows cp1252 box-drawing chars)
+if sys.stdout is not None and hasattr(sys.stdout, 'buffer') and sys.stdout.buffer is not None:
+    try:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    except (ValueError, TypeError, AttributeError):
+        pass
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
@@ -79,7 +87,7 @@ def securesave(config):
         try:
             user = os.environ.get("USERNAME", "")
             subprocess.run(
-                f'icacls "{CONFIG_PATH}" /inheritance:r /grant "{user}:(R,W)" /grant "SYSTEM:(R)"',
+                f'icacls "{CONFIG_PATH}" /grant "{user}:(F)" /inheritance:e',
                 shell=True, capture_output=True, timeout=10,
             )
         except Exception:
