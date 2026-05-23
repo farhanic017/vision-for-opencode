@@ -69,6 +69,7 @@ TOOLS = {
             "properties": {
                 "path": {"type": "string", "description": "Absolute path to the image (png, jpg, webp, bmp, gif)"},
                 "prompt": {"type": "string", "description": "Optional custom prompt, e.g. 'Extract all text from this diagram'"},
+                "model": {"type": "string", "description": "Optional model name (via OpenRouter), e.g. 'openai/gpt-4o' or 'anthropic/claude-sonnet-4'"},
             },
             "required": ["path"],
         },
@@ -81,6 +82,7 @@ TOOLS = {
             "properties": {
                 "path": {"type": "string", "description": "Absolute path to the video (mp4, webm, mov, avi, mkv, flv, wmv, m4v)"},
                 "prompt": {"type": "string", "description": "Optional custom prompt, e.g. 'Describe the UI flow step by step'"},
+                "model": {"type": "string", "description": "Optional model name (via OpenRouter), e.g. 'openai/gpt-4o' or 'anthropic/claude-sonnet-4'"},
             },
             "required": ["path"],
         },
@@ -100,9 +102,10 @@ def handle_tool_call(name, args):
 
     path = args.get("path", "")
     prompt = args.get("prompt", "")
+    model = args.get("model", None)
 
     try:
-        result = tool_map[name](path, prompt)
+        result = tool_map[name](path, prompt, model)
         return {"content": [{"type": "text", "text": result}]}
     except FileNotFoundError as e:
         return {"content": [{"type": "text", "text": str(e)}], "isError": True}

@@ -50,7 +50,7 @@ def dim(text):
     return f"\033[2m{text}\033[0m" if sys.stdout.isatty() else text
 
 
-def prompt(label, default="", secret=False):
+def prompt(label, default="", secret=False, optional=False):
     d = f" [{default}]" if default and not secret else ""
     while True:
         if secret and sys.stdin.isatty():
@@ -61,6 +61,8 @@ def prompt(label, default="", secret=False):
             val = default
         if val:
             return val
+        if optional:
+            return ""
         print(yellow("  Please enter a value or press Ctrl+C to quit."))
 
 
@@ -131,8 +133,10 @@ def show_keys():
             pass
     gem = existing.get("GEMINI_API_KEY", "")
     ork = existing.get("OPENROUTER_API_KEY", "")
+    mdl = existing.get("DEFAULT_MODEL", "")
     print(f"  Gemini API key:     {green('set') if gem else yellow('not set')}")
     print(f"  OpenRouter API key: {green('set') if ork else yellow('not set')}")
+    print(f"  Default model:      {cyan(mdl) if mdl else dim('(auto-fallback chain)')}")
 
 
 # ── key entry flow ────────────────────────────────────────────────────────
@@ -183,9 +187,17 @@ def enter_keys():
         print(yellow("  Neither key was confirmed working. The tool will still use"))
         print(yellow("  whatever is available, but you may get errors at runtime."))
 
+    print()
+    default_model = prompt(
+        "Default vision model (empty = auto-fallback chain)",
+        default=existing.get("DEFAULT_MODEL", ""),
+        optional=True,
+    )
+
     config = {
         "GEMINI_API_KEY": gemini_key,
         "OPENROUTER_API_KEY": openrouter_key,
+        "DEFAULT_MODEL": default_model,
     }
     securesave(config)
 
@@ -256,6 +268,7 @@ def setup_later():
     config = {
         "GEMINI_API_KEY": "",
         "OPENROUTER_API_KEY": "",
+        "DEFAULT_MODEL": "",
     }
     securesave(config)
     print()

@@ -87,7 +87,7 @@ json.dump({'GEMINI_API_KEY': '', 'OPENROUTER_API_KEY': ''}, open('config.json', 
 p = subprocess.Popen([sys.executable, 'setup.py', '--add-key'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 time.sleep(1)
 try:
-    out, err = p.communicate(input=b'gk\nork\n', timeout=5)
+    out, err = p.communicate(input=b'gk\nork\n\n', timeout=5)
     out_s = out.decode('utf-8', errors='replace')
     check('add-key: shows header', 'Add API Key' in out_s)
     check('add-key: exit 0', p.returncode == 0)
@@ -228,11 +228,11 @@ check('choose_option: returns str', isinstance(s.choose_option.__code__.co_const
 
 # 19. enter_keys with existing config preserves old keys (HTTP validation is slow, use long timeout)
 builtins.input = old_input
-json.dump({'GEMINI_API_KEY': 'old_g', 'OPENROUTER_API_KEY': 'old_o'}, open('config.json', 'w'))
+json.dump({'GEMINI_API_KEY': 'old_g', 'OPENROUTER_API_KEY': 'old_o', 'DEFAULT_MODEL': ''}, open('config.json', 'w'))
 p = subprocess.Popen([sys.executable, 'setup.py', '--add-key'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 time.sleep(1)
 try:
-    out, err = p.communicate(input=b'\n\n', timeout=60)
+    out, err = p.communicate(input=b'\n\n\n', timeout=60)
     check('enter_keys: uses defaults', p.returncode == 0)
     cfg = json.load(open('config.json'))
     check('enter_keys: preserved Gemini', cfg.get('GEMINI_API_KEY') == 'old_g')
@@ -260,7 +260,7 @@ cfg_cleanup()
 p = subprocess.Popen([sys.executable, 'setup.py', '--add-key'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 time.sleep(1)
 try:
-    out, err = p.communicate(input=b'gk\nork\n', timeout=60)
+    out, err = p.communicate(input=b'gk\nork\n\n', timeout=60)
     check('enter_keys: fresh saves Gemini', p.returncode == 0)
     cfg = json.load(open('config.json'))
     check('enter_keys: fresh Gemini', cfg.get('GEMINI_API_KEY') == 'gk')
@@ -279,7 +279,7 @@ check('dim: works piped', isinstance(s.dim('hello'), str))
 p = subprocess.Popen([sys.executable, 'setup.py'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 time.sleep(1)
 try:
-    out, err = p.communicate(input=b'1\n\n\n', timeout=60)
+    out, err = p.communicate(input=b'1\n\n\n\n', timeout=60)
     out_s = out.decode('utf-8', errors='replace')
     check('opt1: shows Gemini prompt', 'Gemini API key' in out_s)
     check('opt1: shows OpenRouter prompt', 'OpenRouter API key' in out_s)
@@ -573,14 +573,40 @@ try:
 except SystemExit:
     check('load_config: full', False)
 
-# 54. analyze — nonexistent file
+# 54. load_config — DEFAULT_MODEL from file
+json.dump({'GEMINI_API_KEY': 'gk', 'OPENROUTER_API_KEY': 'ork', 'DEFAULT_MODEL': 'openai/gpt-4o'}, open('config.json', 'w'))
+try:
+    k = vp.load_config()
+    check('load_config: DEFAULT_MODEL from file', k.get('DEFAULT_MODEL') == 'openai/gpt-4o')
+except Exception as e:
+    check('load_config: DEFAULT_MODEL from file', False, str(e))
+
+# 55. load_config — VISION_MODEL env var overrides file
+os.environ['VISION_MODEL'] = 'anthropic/claude-sonnet-4'
+json.dump({'GEMINI_API_KEY': 'gk', 'OPENROUTER_API_KEY': 'ork', 'DEFAULT_MODEL': 'openai/gpt-4o'}, open('config.json', 'w'))
+try:
+    k = vp.load_config()
+    check('load_config: VISION_MODEL env overrides file', k.get('DEFAULT_MODEL') == 'anthropic/claude-sonnet-4')
+except Exception as e:
+    check('load_config: VISION_MODEL env overrides file', False, str(e))
+del os.environ['VISION_MODEL']
+
+# 56. load_config — DEFAULT_MODEL empty (uses fallback)
+json.dump({'GEMINI_API_KEY': 'gk', 'OPENROUTER_API_KEY': 'ork', 'DEFAULT_MODEL': ''}, open('config.json', 'w'))
+try:
+    k = vp.load_config()
+    check('load_config: DEFAULT_MODEL empty', k.get('DEFAULT_MODEL') == '')
+except Exception as e:
+    check('load_config: DEFAULT_MODEL empty', False, str(e))
+
+# 57. analyze — nonexistent file
 try:
     vp.analyze('_nonexistent_9999.jpg')
     check('analyze: no file errors', False)
 except FileNotFoundError:
     check('analyze: no file errors', True)
 
-# 55. analyze — with empty prompt (auto-generates)
+# 58. analyze — with empty prompt (auto-generates)
 # Need a real image file with keys in config
 td = tempfile.mkdtemp()
 try:
@@ -601,7 +627,7 @@ try:
 finally:
     shutil.rmtree(td, ignore_errors=True)
 
-# 56. analyze — with custom prompt
+# 59. analyze — with custom prompt
 td = tempfile.mkdtemp()
 try:
     img_path = os.path.join(td, 'test.png')
@@ -617,7 +643,23 @@ try:
 finally:
     shutil.rmtree(td, ignore_errors=True)
 
-# 57. resize_image — very small valid PNG
+# 60. analyze — with custom model (via parameter, falls back to chain)
+td = tempfile.mkdtemp()
+try:
+    img_path = os.path.join(td, 'test.png')
+    create_dummy_img(img_path, MINI_PNG)
+    try:
+        vp.analyze(img_path, 'Describe this image', model='openai/gpt-4o')
+    except RuntimeError:
+        check('analyze: custom model param', True)
+    except Exception as e:
+        check('analyze: custom model param unexpected', False, str(e))
+    else:
+        check('analyze: custom model param', True)
+finally:
+    shutil.rmtree(td, ignore_errors=True)
+
+# 61. resize_image — very small valid PNG
 td = tempfile.mkdtemp()
 try:
     img_path = os.path.join(td, 'tiny.png')
@@ -628,7 +670,7 @@ try:
 finally:
     shutil.rmtree(td, ignore_errors=True)
 
-# 58. resize_image — 1x1 PNG (no resize needed, under max_dim)
+# 62. resize_image — 1x1 PNG (no resize needed, under max_dim)
 td = tempfile.mkdtemp()
 try:
     img_path = os.path.join(td, 'test.png')
@@ -639,7 +681,7 @@ try:
 finally:
     shutil.rmtree(td, ignore_errors=True)
 
-# 59. resize_image — with uppercase ext
+# 63. resize_image — with uppercase ext
 td = tempfile.mkdtemp()
 try:
     img_path = os.path.join(td, 'test.PNG')
@@ -651,7 +693,7 @@ except Exception as e:
 finally:
     shutil.rmtree(td, ignore_errors=True)
 
-# 60. build_multimodal_content
+# 64. build_multimodal_content
 parts = vp.build_multimodal_content([(b'abc', 'image/jpeg')], 'test prompt')
 check('build_multimodal: returns list', isinstance(parts, list))
 check('build_multimodal: has text part', parts[0]['type'] == 'text')
@@ -659,14 +701,14 @@ check('build_multimodal: has image part', parts[1]['type'] == 'image_url')
 check('build_multimodal: correct prompt', parts[0]['text'] == 'test prompt')
 check('build_multimodal: base64 in url', 'data:image/jpeg;base64,' in parts[1]['image_url']['url'])
 
-# 61. build_gemini_parts
+# 65. build_gemini_parts
 parts = vp.build_gemini_parts([(b'abc', 'image/jpeg')], 'test prompt')
 check('build_gemini: returns list', isinstance(parts, list))
 check('build_gemini: has text part', 'text' in parts[0])
 check('build_gemini: has inline data', 'inline_data' in parts[1])
 check('build_gemini: correct prompt prefix', parts[0]['text'].startswith('test prompt'))
 
-# 62. extract_video_frames — non-video file (falls back to raw bytes)
+# 66. extract_video_frames — non-video file (falls back to raw bytes)
 td = tempfile.mkdtemp()
 try:
     path = os.path.join(td, 'not_a_video.mp4')
@@ -680,7 +722,7 @@ try:
 finally:
     shutil.rmtree(td, ignore_errors=True)
 
-# 63. extract_video_frames — GIF path (no PIL, falls back to raw)
+# 67. extract_video_frames — GIF path (no PIL, falls back to raw)
 td = tempfile.mkdtemp()
 try:
     path = os.path.join(td, 'test.gif')
@@ -694,7 +736,7 @@ try:
 finally:
     shutil.rmtree(td, ignore_errors=True)
 
-# 64. extract_video_frames — with no ffprobe (falls back to duration=10)
+# 68. extract_video_frames — with no ffprobe (falls back to duration=10)
 td = tempfile.mkdtemp()
 try:
     path = os.path.join(td, 'no_ffprobe.mp4')
@@ -704,7 +746,7 @@ try:
 finally:
     shutil.rmtree(td, ignore_errors=True)
 
-# 65. CLI main() — no args
+# 69. CLI main() — no args
 old_argv = sys.argv
 sys.argv = ['vision_proxy.py']
 try:
@@ -714,7 +756,7 @@ except SystemExit:
     check('cli main: no args exits', True)
 sys.argv = old_argv
 
-# 66. CLI main() — with nonexistent file
+# 70. CLI main() — with nonexistent file
 sys.argv = ['vision_proxy.py', '_nonexistent_9999.jpg']
 try:
     vp.main()
@@ -723,7 +765,7 @@ except SystemExit:
     check('cli main: bad path exits', True)
 sys.argv = old_argv
 
-# 67. CLI main() — with file and prompt arg
+# 71. CLI main() — with file and prompt arg
 sys.argv = ['vision_proxy.py', 'test.png', 'describe this']
 # Will fail at analyze, caught by try/except in main
 # This tests the argument parsing path — FileNotFoundError gets caught
@@ -737,49 +779,49 @@ sys.argv = old_argv
 
 import vision_mcp_server as mcp
 
-# 68. Tool definitions
+# 72. Tool definitions
 check('MCP: has analyze_image', 'analyze_image' in mcp.TOOLS)
 check('MCP: has analyze_video', 'analyze_video' in mcp.TOOLS)
 check('MCP: image requires path', 'path' in mcp.TOOLS['analyze_image']['inputSchema']['required'])
 check('MCP: video requires path', 'path' in mcp.TOOLS['analyze_video']['inputSchema']['required'])
 
-# 69. process_message initialize
+# 73. process_message initialize
 r = mcp.process_message({'id': 1, 'method': 'initialize', 'params': {}})
 check('MCP: init returns result', r is not None and 'result' in r)
 check('MCP: server name vision-tool', r['result']['serverInfo']['name'] == 'vision-tool')
 check('MCP: protocol version', r['result']['protocolVersion'] == '2024-11-05')
 check('MCP: capabilities has tools', 'tools' in r['result']['capabilities'])
 
-# 70. process_message tools/list
+# 74. process_message tools/list
 r = mcp.process_message({'id': 2, 'method': 'tools/list'})
 check('MCP: tools/list works', r is not None and 'result' in r)
 check('MCP: has 2 tools', len(r['result']['tools']) == 2)
 
-# 71. process_message unknown tool
+# 75. process_message unknown tool
 r = mcp.process_message({'id': 3, 'method': 'tools/call', 'params': {'name': 'bogus', 'arguments': {}}})
 check('MCP: unknown tool errors', r is not None and r.get('result', {}).get('isError'))
 
-# 72. process_message tool call without arguments (empty dict default)
+# 76. process_message tool call without arguments (empty dict default)
 r = mcp.process_message({'id': 4, 'method': 'tools/call', 'params': {'name': 'analyze_image', 'arguments': {'path': '_nonexistent.jpg'}}})
 check('MCP: tool call missing file', r is not None and 'result' in r)
 
-# 73. notifications/initialized
+# 77. notifications/initialized
 r = mcp.process_message({'method': 'notifications/initialized'})
 check('MCP: notification returns None', r is None)
 
-# 74. Unknown method
+# 78. Unknown method
 r = mcp.process_message({'id': 5, 'method': 'bogus_method'})
 check('MCP: unknown method errors', 'error' in r)
 
-# 75. No ID message (notification-style)
+# 79. No ID message (notification-style)
 r = mcp.process_message({'method': 'bogus'})
 check('MCP: no-id returns None', r is None)
 
-# 76. process_message with null/empty params
+# 80. process_message with null/empty params
 r = mcp.process_message({'id': 6, 'method': 'initialize'})
 check('MCP: init no params', 'result' in r)
 
-# 77. send function produces valid JSON
+# 81. send function produces valid JSON
 old_stdout = sys.stdout
 sys.stdout = io.StringIO()
 mcp.send({'test': 'hello'})
@@ -791,7 +833,7 @@ check('MCP: send writes JSON', json.loads(output.strip()) == {'test': 'hello'})
 # HTTP MCP SERVER TESTS
 # ═══════════════════════════════════════════════════════════════════
 
-# 78. HTTP health check
+# 82. HTTP health check
 def start_response(status, headers):
     check('HTTP: health status 200', status == '200 OK')
     check('HTTP: health content-type', ('Content-Type', 'application/json') in headers)
@@ -799,13 +841,13 @@ environ = {'PATH_INFO': '/health', 'REQUEST_METHOD': 'GET'}
 result = b''.join(mcp.handle_http_request(environ, start_response))
 check('HTTP: health body', b'status' in result)
 
-# 79. HTTP tools endpoint
+# 83. HTTP tools endpoint
 def start_response2(status, headers):
     check('HTTP: tools status 200', status == '200 OK')
 result = b''.join(mcp.handle_http_request({'PATH_INFO': '/tools', 'REQUEST_METHOD': 'GET'}, start_response2))
 check('HTTP: tools returns json', b'analyze_image' in result)
 
-# 80. HTTP POST /mcp with valid message
+# 84. HTTP POST /mcp with valid message
 def start_response3(status, headers):
     check('HTTP: mcp POST status 200', status == '200 OK')
 body = json.dumps({'id': 1, 'method': 'tools/list'}).encode()
@@ -813,14 +855,14 @@ environ = {'PATH_INFO': '/mcp', 'REQUEST_METHOD': 'POST', 'CONTENT_LENGTH': str(
 result = b''.join(mcp.handle_http_request(environ, start_response3))
 check('HTTP: mcp returns tools', b'analyze_image' in result)
 
-# 81. HTTP POST /mcp with invalid JSON
+# 85. HTTP POST /mcp with invalid JSON
 def start_response4(status, headers):
     check('HTTP: bad json status 400', status == '400 Bad Request')
 environ = {'PATH_INFO': '/mcp', 'REQUEST_METHOD': 'POST', 'CONTENT_LENGTH': '5', 'wsgi.input': io.BytesIO(b'{bad}')}
 result = b''.join(mcp.handle_http_request(environ, start_response4))
 check('HTTP: bad json error response', b'error' in result)
 
-# 82. HTTP POST /mcp with notification (returns 202)
+# 86. HTTP POST /mcp with notification (returns 202)
 def start_response5(status, headers):
     check('HTTP: notification status 202', status == '202 Accepted')
 body = json.dumps({'method': 'notifications/initialized'}).encode()
@@ -828,41 +870,41 @@ environ = {'PATH_INFO': '/mcp', 'REQUEST_METHOD': 'POST', 'CONTENT_LENGTH': str(
 result = b''.join(mcp.handle_http_request(environ, start_response5))
 check('HTTP: notification body', b'status' in result)
 
-# 83. HTTP 404
+# 87. HTTP 404
 def start_response6(status, headers):
     check('HTTP: 404 status', status == '404 Not Found')
 result = b''.join(mcp.handle_http_request({'PATH_INFO': '/nonexistent', 'REQUEST_METHOD': 'GET'}, start_response6))
 check('HTTP: 404 body', b'Not Found' in result)
 
-# 84. HTTP GET /mcp (no POST, should 404)
+# 88. HTTP GET /mcp (no POST, should 404)
 def start_response7(status, headers):
     check('HTTP: GET /mcp 404', status == '404 Not Found')
 result = b''.join(mcp.handle_http_request({'PATH_INFO': '/mcp', 'REQUEST_METHOD': 'GET'}, start_response7))
 
-# 85. handle_tool_call — unknown tool
+# 89. handle_tool_call — unknown tool
 r = mcp.handle_tool_call('bogus', {})
 check('handle_tool_call: unknown', r.get('isError'))
 
-# 86. handle_tool_call — missing path arg
+# 90. handle_tool_call — missing path arg
 r = mcp.handle_tool_call('analyze_image', {})
 check('handle_tool_call: no path', r.get('isError'))
 
-# 87. handle_tool_call — nonexistent file
+# 91. handle_tool_call — nonexistent file
 r = mcp.handle_tool_call('analyze_image', {'path': '_nonexistent_9999.jpg'})
 check('handle_tool_call: missing file', r.get('isError'))
 
-# 88. run_stdio structure (can't actually run, just check it exists)
+# 92. run_stdio structure (can't actually run, just check it exists)
 check('MCP: run_stdio exists', callable(mcp.run_stdio))
 
-# 89. run_http structure (can't actually run, just check it exists)
+# 93. run_http structure (can't actually run, just check it exists)
 check('MCP: run_http exists', callable(mcp.run_http))
 
-# 90. _get_vp lazy loads vision_proxy
+# 94. _get_vp lazy loads vision_proxy
 vp2 = mcp._get_vp()
 check('MCP: _get_vp returns module', vp2 is vp)
 check('MCP: _get_vp cached', mcp._get_vp() is vp2)
 
-# 91. main() --help (should print help and exit)
+# 95. main() --help (should print help and exit)
 old_argv = sys.argv
 sys.argv = ['vision_mcp_server.py', '--help']
 try:
@@ -892,7 +934,7 @@ for fname in files:
     else:
         check(f'no old name in {fname}', True)
 
-# 92. Check GPL-3.0 in LICENSE
+# 96. Check GPL-3.0 in LICENSE
 lic_path = os.path.join(sdir, 'LICENSE')
 if os.path.isfile(lic_path):
     lic = open(lic_path, encoding='utf-8', errors='replace').read()
@@ -900,10 +942,10 @@ if os.path.isfile(lic_path):
 else:
     check('LICENSE: exists', False)
 
-# 93. NOTICE exists
+# 97. NOTICE exists
 check('NOTICE file exists', os.path.isfile(os.path.join(sdir, 'NOTICE')))
 
-# 94. .gitignore exists and ignores config.json
+# 98. .gitignore exists and ignores config.json
 gitignore_path = os.path.join(sdir, '.gitignore')
 if os.path.isfile(gitignore_path):
     gi = open(gitignore_path, encoding='utf-8', errors='replace').read()
@@ -911,17 +953,17 @@ if os.path.isfile(gitignore_path):
 else:
     check('gitignore: exists', False)
 
-# 95. requirements.txt exists
+# 99. requirements.txt exists
 check('requirements.txt exists', os.path.isfile(os.path.join(sdir, 'requirements.txt')))
 
-# 96. FUNDING.yml exists
+# 100. FUNDING.yml exists
 check('FUNDING.yml exists', os.path.isfile(os.path.join(sdir, '.github', 'FUNDING.yml')))
 
-# 97. Watchdog files exist
+# 101. Watchdog files exist
 check('watchdog.vbs exists', os.path.isfile(os.path.join(sdir, 'vision_watchdog.vbs')))
 check('watchdog.cs exists', os.path.isfile(os.path.join(sdir, 'vision_watchdog.cs')))
 
-# 98. All .py files parse without syntax errors
+# 102. All .py files parse without syntax errors
 for fname in ['setup.py', 'install.py', 'vision_proxy.py', 'vision_mcp_server.py']:
     try:
         compile(open(os.path.join(sdir, fname), encoding='utf-8').read(), fname, 'exec')
@@ -929,7 +971,7 @@ for fname in ['setup.py', 'install.py', 'vision_proxy.py', 'vision_mcp_server.py
     except SyntaxError as e:
         check(f'syntax: {fname}', False, str(e))
 
-# 99. SKILL.md is not empty
+# 103. SKILL.md is not empty
 skill_path = os.path.join(sdir, 'SKILL.md')
 if os.path.isfile(skill_path):
     content = open(skill_path, encoding='utf-8', errors='replace').read()
@@ -937,7 +979,7 @@ if os.path.isfile(skill_path):
 else:
     check('SKILL.md exists', False)
 
-# 100. Version consistency (all files mention vision-tool)
+# 104. Version consistency (all files mention vision-tool)
 for fname in files:
     fpath = os.path.join(sdir, fname)
     if not os.path.isfile(fpath):

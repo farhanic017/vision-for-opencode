@@ -26,8 +26,11 @@ Chains through free backends first, then paid fallbacks:
   Paid:   GPT-4o → GPT-4o-mini → Claude 3.5 Sonnet → Claude 3 Haiku →
           Llama 3.2 90B Vision → Qwen VL 8B
 
+Custom model (via OpenRouter):  --model "openai/gpt-4o" or VISION_MODEL env var
+  Any model name gets tried first, then falls back to the chain above.
+
 Usage:
-  python vision_proxy.py <image_or_video_path> [prompt text...]
+  python vision_proxy.py <image_or_video_path> [prompt text...] [--model NAME]
 
 First run? Run setup.py to configure your API keys:
   python setup.py
@@ -72,6 +75,7 @@ def load_config():
     keys = {
         "GEMINI_API_KEY": os.environ.get("GEMINI_API_KEY"),
         "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY"),
+        "DEFAULT_MODEL": os.environ.get("VISION_MODEL"),
     }
     if os.path.isfile(CONFIG_PATH):
         try:
@@ -80,10 +84,10 @@ def load_config():
         except (json.JSONDecodeError, IOError):
             cfg = None
         if isinstance(cfg, dict):
-            for k in keys:
+            for k in list(keys):
                 if not keys[k]:
                     keys[k] = cfg.get(k)
-    present = [k for k, v in keys.items() if v]
+    present = [k for k in ("GEMINI_API_KEY", "OPENROUTER_API_KEY") if keys.get(k)]
     if not present:
         raise RuntimeError(
             "No API keys configured.\n"
@@ -322,12 +326,15 @@ def call_gemini_multi(frames, prompt, model="gemini-2.5-flash"):
 
 # ── Public API ──────────────────────────────────────────────────────────
 
-def analyze(file_path, prompt=""):
+def analyze(file_path, prompt="", model=None):
     """Analyse an image or video file and return the description text.
 
     Args:
         file_path: Absolute path to image or video file.
         prompt: Optional custom prompt. Auto-generated if empty.
+        model: Optional model name (via OpenRouter). Tried first, then
+               falls back to the built-in chain. Set VISION_MODEL env
+               var or DEFAULT_MODEL in config.json for a persistent default.
 
     Returns:
         Description string from the first successful backend.
@@ -343,6 +350,9 @@ def analyze(file_path, prompt=""):
 
     global CFG
     CFG = load_config()
+
+    # Resolve model: explicit arg > config default > fallback chain
+    model = model or CFG.get("DEFAULT_MODEL", "") or None
 
     if not prompt:
         prompt = (
@@ -368,6 +378,11 @@ def analyze(file_path, prompt=""):
             ("\u2605 Llama 3.2 90B Vision", lambda: call_openrouter_multi(frames, prompt, "meta-llama/llama-3.2-90b-vision-instruct")),
             ("\u2605 Qwen VL 8B", lambda: call_openrouter_multi(frames, prompt, "qwen/qwen3-vl-8b-instruct")),
         ]
+        if model:
+            strategies.insert(0, (
+                f"\u2605 Custom: {model}",
+                lambda m=model: call_openrouter_multi(frames, prompt, m),
+            ))
     else:
         data, mime = resize_image(file_path, 1024)
         img_b64 = b64(data)
@@ -386,6 +401,11 @@ def analyze(file_path, prompt=""):
             ("\u2605 Llama 3.2 90B Vision", lambda: call_openrouter(img_b64, mime, prompt, "meta-llama/llama-3.2-90b-vision-instruct")),
             ("\u2605 Qwen VL 8B", lambda: call_openrouter(img_b64, mime, prompt, "qwen/qwen3-vl-8b-instruct")),
         ]
+        if model:
+            strategies.insert(0, (
+                f"\u2605 Custom: {model}",
+                lambda m=model: call_openrouter(img_b64, mime, prompt, m),
+            ))
 
     last_error = ""
     for name, fn in strategies:
@@ -405,22 +425,22 @@ def analyze(file_path, prompt=""):
 # ── CLI entry point ─────────────────────────────────────────────────────
 
 def main():
-    if len(sys.argv) < 2:
-        print(
-            "Usage:  python vision_proxy.py <image_or_video_path> [prompt...]\n"
-            "First run?  python setup.py\n\n"
-            "Examples:\n"
-            "  python vision_proxy.py screenshot.png\n"
-            "  python vision_proxy.py video.mp4 \"Describe the UI flow\"\n"
-            "  python vision_proxy.py diagram.jpg \"Extract all text\""
-        )
-        sys.exit(1)
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="Analyse images and videos using AI vision models.",
+        epilog="First run?  python setup.py",
+    )
+    parser.add_argument("file", help="Path to image or video file")
+    parser.add_argument("prompt", nargs="*", help="Optional prompt text")
+    parser.add_argument("--model", "-m", help="Custom model name (via OpenRouter)")
+    args = parser.parse_args()
 
-    file_path = sys.argv[1]
-    prompt = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else ""
+    file_path = args.file
+    prompt = " ".join(args.prompt) if args.prompt else ""
+    model = args.model
 
     try:
-        result = analyze(file_path, prompt)
+        result = analyze(file_path, prompt, model)
         print(result)
     except FileNotFoundError as e:
         print(str(e), file=sys.stderr)
