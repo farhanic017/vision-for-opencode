@@ -1,0 +1,60 @@
+Vision Tool — Copyright and License Notices
+=============================================
+
+Copyright (c) 2026 Farhan Dhrubo
+Email: farhaiee123@gmail.com
+GitHub: https://github.com/farhanic017
+
+All source code, documentation, scripts, and associated files
+in this repository are the exclusive work of Farhan Dhrubo.
+
+License
+-------
+This program is free software: you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation, either version 3
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU General Public License for more details:
+https://www.gnu.org/licenses/gpl-3.0.html
+
+YOU MAY NOT:
+- Remove, alter, or obscure any copyright notice in any file.
+- Re-distribute this software or any derivative as your own work
+  without proper attribution to the original author.
+- Sell this software or any derivative thereof without explicit
+  written permission from the copyright holder.
+- Use this code in a manner that misrepresents its origin.
+
+Required Attribution
+--------------------
+Any use, distribution, or derivative work MUST include a clear
+and prominent attribution to the original author:
+  "Originally created by Farhan Dhrubo (https://github.com/farhanic017)"
+
+Commercial Use
+--------------
+For commercial licensing inquiries, contact: farhaiee123@gmail.com
+
+This repository is provided as-is with no guarantees or warranty
+of any kind, express or implied.
+
+---
+
+Files in this repository:
+  vision_proxy.py          - Core analysis engine (CLI + Python API)
+  vision_mcp_server.py     - MCP server (stdio + HTTP modes)
+  install.py               - Auto-installer with API key setup
+  setup.py                 - First-run API key wizard
+  SKILL.md                 - AI agent installation instructions
+  README.md                - Documentation
+  LICENSE                  - GPL-3.0 license text
+  NOTICE                   - This file
+  config.json.example      - Example config (safe to commit)
+  requirements.txt         - pip dependencies
+  .gitignore
+  vision_watchdog.vbs      - Invisible background process manager
+  vision_watchdog.cs       - C# source for zero-flash compiled EXE

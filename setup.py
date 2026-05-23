@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
+#  Vision Tool — First-run configuration wizard for opencode-vision
+#  Copyright (c) 2026 Farhan Dhrubo  <farhaiee123@gmail.com>
+#  License: GPL-3.0  —  https://github.com/farhanic017/vision-tool
+#
+#  This program is free software. You may NOT remove this notice,
+#  re-distribute as your own work, or sell without attribution.
+# =============================================================================
+
 """
 setup.py — First-run configuration wizard for opencode-vision.
 Copyright (C) 2026 Farhan Dhrubo
 
 This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Guides you through adding API keys so vision_proxy.py can analyse
-images and videos through free & paid vision backends.
-
-Keys are saved to config.json (next to this script).  No data is
-ever sent anywhere except to the API provider you choose.
+it under the ...
 """
 
 import json
@@ -20,6 +20,7 @@ import os
 import sys
 import urllib.request
 import urllib.error
+import getpass
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
@@ -39,9 +40,14 @@ def yellow(text):
 
 
 def prompt(label, default="", secret=False):
-    d = f" [{default}]" if default else ""
+    # Do not display default when secret to avoid leaking in prompt
+    d = f" [{default}]" if default and not secret else ""
     while True:
-        val = input(f"  {label}{d}: ").strip()
+        if secret:
+            # getpass hides input; strip to remove surrounding whitespace
+            val = getpass.getpass(f"  {label}{d}: ").strip()
+        else:
+            val = input(f"  {label}{d}: ").strip()
         if not val:
             val = default
         if val:

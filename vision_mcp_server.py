@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+#  Vision Tool — MCP server for image & video analysis
+#  Copyright (c) 2026 Farhan Dhrubo  <farhaiee123@gmail.com>
+#  License: GPL-3.0  —  https://github.com/farhanic017/vision-tool
+#
+#  This program is free software. You may NOT remove this notice,
+#  re-distribute as your own work, or sell without attribution.
+# =============================================================================
+
 """
 vision_mcp_server.py — MCP server for opencode-vision.
 Copyright (C) 2026 Farhan Dhrubo

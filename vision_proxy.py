@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+#  Vision Tool — Image & video analysis for AI coding assistants
+#  Copyright (c) 2026 Farhan Dhrubo  <farhaiee123@gmail.com>
+#  License: GPL-3.0  —  https://github.com/farhanic017/vision-tool
+#
+#  This program is free software. You may NOT remove this notice,
+#  re-distribute as your own work, or sell without attribution.
+# =============================================================================
+
 """
 vision_proxy.py — Image & video analysis for AI models without native vision.
 Copyright (C) 2026 Farhan Dhrubo
@@ -24,6 +32,7 @@ Usage:
 First run? Run setup.py to configure your API keys:
   python setup.py
 """
+
 
 import base64
 import json
