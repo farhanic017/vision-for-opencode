@@ -1318,7 +1318,7 @@ def run_all():
             fn()
         except Exception as e:
             safe_print(f"  \u2570\u2192 CRASH in {name}: {e}")
-            traceback.print_exc(file=_REAL_STDERR)
+            traceback.print_exc(file=_REAL_STDOUT)
             FAIL += 1
 
     safe_print("")

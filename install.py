@@ -35,20 +35,45 @@ REPO_NAME = "vision-tool"
 # ── helpers ──────────────────────────────────────────────────────────────
 
 
+def safe(text):
+    """Replace Unicode chars that may not encode on cp1252 Windows."""
+    return (str(text)
+        .replace('\u2714', '[OK]')
+        .replace('\u2716', '[X]')
+        .replace('\u26a0', '[!]')
+        .replace('\u2500', '-')
+        .replace('\u2550', '=')
+        .replace('\u2554', '+')
+        .replace('\u2557', '+')
+        .replace('\u2551', '|')
+        .replace('\u255a', '+')
+        .replace('\u255d', '+')
+        .replace('\u2014', '--')
+    )
+
+
 def bold(text):
-    return f"\033[1m{text}\033[0m" if sys.stdout.isatty() else text
+    if sys.stdout.isatty():
+        return f"\033[1m{text}\033[0m"
+    return safe(text)
 
 
 def green(text):
-    return f"\033[92m{text}\033[0m" if sys.stdout.isatty() else text
+    if sys.stdout.isatty():
+        return f"\033[92m{text}\033[0m"
+    return safe(text)
 
 
 def yellow(text):
-    return f"\033[93m{text}\033[0m" if sys.stdout.isatty() else text
+    if sys.stdout.isatty():
+        return f"\033[93m{text}\033[0m"
+    return safe(text)
 
 
 def cyan(text):
-    return f"\033[96m{text}\033[0m" if sys.stdout.isatty() else text
+    if sys.stdout.isatty():
+        return f"\033[96m{text}\033[0m"
+    return safe(text)
 
 
 def run(cmd, cwd=None, check=True, capture=False):
@@ -308,14 +333,6 @@ def step_watchdog(target_dir, auto=False):
 
 
 def main():
-    # Force UTF-8 output (handles Windows cp1252 box-drawing chars)
-    if sys.stdout is not None and hasattr(sys.stdout, 'buffer') and sys.stdout.buffer is not None:
-        try:
-            _OLD_STDOUT = sys.stdout
-            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-        except (ValueError, TypeError, AttributeError):
-            pass
-
     parser = argparse.ArgumentParser(description="Install vision-tool")
     parser.add_argument("--auto", action="store_true", help="Non-interactive mode")
     parser.add_argument("--repo", default=REPO_URL, help="Repository URL to clone")
