@@ -21,8 +21,9 @@ only activates on certain keywords. Once installed:
    `analyze_video` as first-class tools available at all times.
 
 3. **The invisible watchdog** (`vision_watchdog.vbs`) monitors for ALL
-   supported AI tools (opencode, Claude, Cursor, Windsurf, Aider, Continue)
-   and starts/stops the vision server automatically — no manual steps.
+   supported AI tools (opencode, Claude, Cursor, Windsurf, Aider, Continue,
+   VSCode, Antigravity) and starts/stops the vision server automatically —
+   no manual steps.
 
 4. **The dynamic-skill-loader** integration marks vision-tool as
    `alwaysOn`, so it's never filtered by keyword triggers.
@@ -152,7 +153,7 @@ python /path/to/vision_proxy.py video.mp4 "Describe the gameplay"
 
 Your AI just needs to call this as a bash/terminal command.
 
-### 2. MCP server (OpenCode, Claude Desktop, Cursor, Windsurf, Continue.dev)
+### 2. MCP server (OpenCode, Claude Desktop, Cursor, Windsurf, Continue.dev, VSCode, Antigravity)
 
 Add the MCP server to your client's config. This exposes `analyze_image` and
 `analyze_video` as first-class MCP tools that any agent can call directly.
@@ -190,6 +191,47 @@ the model automatically analyzes any image or video without being asked to.
   }
 }
 ```
+
+#### VSCode (`mcp.json`)
+
+VSCode uses the `"servers"` key (not `"mcpServers"`). Add to your user or workspace `mcp.json`:
+
+```json
+{
+  "servers": {
+    "vision-tool": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["path/to/vision_mcp_server.py"]
+    }
+  }
+}
+```
+
+**Locations:**
+- User (global): `%APPDATA%\Code\User\mcp.json` (Windows), `~/Library/Application Support/Code/User/mcp.json` (macOS), `~/.config/Code/User/mcp.json` (Linux)
+- Workspace: `.vscode/mcp.json` in your project root
+
+Open via Command Palette: `MCP: Open User Configuration` or `MCP: Open Workspace Folder MCP Configuration`.
+
+#### Antigravity (Google AI-first IDE)
+
+Antigravity uses standard `mcpServers` format. Add to `mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "vision-tool": {
+      "command": "python",
+      "args": ["path/to/vision_mcp_server.py"]
+    }
+  }
+}
+```
+
+**Config path:** `%USERPROFILE%\.gemini\antigravity\mcp_config.json` (Windows) or `~/.gemini/antigravity/mcp_config.json` (macOS/Linux).
+
+Open via Agent Panel → `...` → Manage MCP Servers → View raw config.
 
 #### Cursor
 
@@ -257,7 +299,7 @@ whenever **any** supported AI coding tool runs and kills it when all tools
 exit — all hidden, no windows, no taskbar icons.
 
 **Monitored tools:** opencode.exe, claude.exe, cursor.exe, windsurf.exe,
-aider.exe, continue.exe
+aider.exe, continue.exe, code.exe (VSCode), antigravity.exe
 
 **How it works:**
 
@@ -345,6 +387,8 @@ vision proxy handles that externally and returns plain text.
 | **Cursor** | MCP server | ✅ Yes |
 | **Windsurf** | MCP server | ✅ Yes |
 | **Continue.dev** | MCP server | ✅ Yes |
+| **VSCode** (native MCP via Copilot Agent) | MCP server (`.vscode/mcp.json` or user `mcp.json`) | ✅ Yes |
+| **Antigravity** (Google AI-first IDE) | MCP server (`mcp_config.json`) | ✅ Yes |
 | **Hermes** (NousResearch) | MCP server or CLI | ✅ Compatible (standard MCP) |
 | **OpenClaw** | MCP server or CLI | ✅ Compatible (standard MCP) |
 | **Ollama** (any local model) | MCP server + `"model": "ollama/..."` | ✅ Yes |

@@ -208,6 +208,24 @@ def detect_client():
     if cursor_path and os.path.isfile(cursor_path):
         clients.append(("Cursor", cursor_path))
 
+    # Check VSCode (native MCP support)
+    if os.name == "nt":
+        vscode_path = os.path.expanduser("~/AppData/Roaming/Code/User/mcp.json")
+    elif sys.platform == "darwin":
+        vscode_path = os.path.expanduser("~/Library/Application Support/Code/User/mcp.json")
+    else:
+        vscode_path = os.path.expanduser("~/.config/Code/User/mcp.json")
+    if os.path.isfile(vscode_path):
+        clients.append(("VSCode", vscode_path))
+
+    # Check Antigravity (Google AI-first IDE)
+    if os.name == "nt":
+        anti_path = os.path.expanduser("~\\.gemini\\antigravity\\mcp_config.json")
+    else:
+        anti_path = os.path.expanduser("~/.gemini/antigravity/mcp_config.json")
+    if os.path.isfile(anti_path):
+        clients.append(("Antigravity", anti_path))
+
     return clients
 
 
@@ -235,6 +253,13 @@ def step_configure(target_dir, auto=False):
                     "type": "local",
                     "command": [sys.executable, os.path.join(target_dir, "vision_mcp_server.py")],
                     "enabled": True,
+                }
+            elif name == "VSCode":
+                mcp_key = "servers"
+                server_entry = {
+                    "type": "stdio",
+                    "command": sys.executable,
+                    "args": [os.path.join(target_dir, "vision_mcp_server.py")],
                 }
             else:
                 mcp_key = "mcpServers"

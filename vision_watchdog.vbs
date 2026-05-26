@@ -8,7 +8,7 @@
 ' When all tools exit -> kills child process, cleans up PID file.
 '
 ' Supported tools: opencode.exe, claude.exe, cursor.exe, windsurf.exe,
-'                  aider.exe, continue.exe
+'                  aider.exe, continue.exe, code.exe, antigravity.exe
 '
 ' Usage:
 '   wscript.exe //nologo vision_watchdog.vbs
@@ -32,7 +32,9 @@ AI_TOOLS = Array( _
     "cursor.exe", _
     "windsurf.exe", _
     "aider.exe", _
-    "continue.exe" _
+    "continue.exe", _
+    "code.exe", _
+    "antigravity.exe" _
 )
 
 ' -- Parse arguments ----------------------------------------------------

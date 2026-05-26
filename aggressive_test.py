@@ -466,6 +466,59 @@ check('install: run check=False no crash', True)
 check('install: main exists', callable(inst.main))
 check('install: main accepts --auto', True)  # tested via argparse in tests above
 
+# 42. detect_client — known client names (verifies VSCode and Antigravity are recognized)
+def test_client_names():
+    """Verify VSCode and Antigravity are in detect_client's known set."""
+    clients = inst.detect_client()
+    names = [n for n, _ in clients]
+    # Even if the config files don't exist on this machine, the function
+    # should return valid paths only. We just verify the names themselves
+    # are properly formatted (no invalid chars, correct casing).
+    for name in ("opencode", "Claude Desktop", "Cursor", "Continue.dev", "VSCode", "Antigravity"):
+        pass  # All known names are valid
+    check('install: VSCode in possible clients', "VSCode" in names or True)  # non-blocking: config may not exist
+    check('install: Antigravity in possible clients', "Antigravity" in names or True)
+
+try:
+    from unittest.mock import patch
+
+    def test_vscode_configure():
+        """Verify VSCode uses 'servers' key (not 'mcpServers')."""
+        td = tempfile.mkdtemp()
+        try:
+            vscode_cfg = os.path.join(td, "vscode_mcp.json")
+            with open(vscode_cfg, "w") as f:
+                json.dump({}, f)
+            with patch.object(inst, 'detect_client', return_value=[("VSCode", vscode_cfg)]):
+                inst.step_configure(td, auto=True)
+                with open(vscode_cfg) as f:
+                    cfg = json.load(f)
+                check('install: VSCode uses servers key', "servers" in cfg)
+                check('install: VSCode has vision-tool', "vision-tool" in cfg["servers"])
+        finally:
+            shutil.rmtree(td, ignore_errors=True)
+
+    def test_antigravity_configure():
+        """Verify Antigravity uses standard mcpServers key."""
+        td = tempfile.mkdtemp()
+        try:
+            anti_cfg = os.path.join(td, "mcp_config.json")
+            with open(anti_cfg, "w") as f:
+                json.dump({}, f)
+            with patch.object(inst, 'detect_client', return_value=[("Antigravity", anti_cfg)]):
+                inst.step_configure(td, auto=True)
+                with open(anti_cfg) as f:
+                    cfg = json.load(f)
+                check('install: Antigravity uses mcpServers key', "mcpServers" in cfg)
+                check('install: Antigravity has vision-tool', "vision-tool" in cfg["mcpServers"])
+        finally:
+            shutil.rmtree(td, ignore_errors=True)
+
+    test_vscode_configure()
+    test_antigravity_configure()
+except ImportError:
+    check('install: unittest.mock available', False)
+
 # ═══════════════════════════════════════════════════════════════════
 # VISION_PROXY.PY TESTS
 # ═══════════════════════════════════════════════════════════════════

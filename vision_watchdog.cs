@@ -32,7 +32,9 @@ class VisionWatchdog
         "cursor.exe",
         "windsurf.exe",
         "aider.exe",
-        "continue.exe"
+        "continue.exe",
+        "code.exe",
+        "antigravity.exe"
     };
 
     static void Main(string[] args)
