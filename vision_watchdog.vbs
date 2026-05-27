@@ -22,7 +22,32 @@ Dim args, childCmd, pidFileName, shell, fso, wmi, pidFilePath
 
 Set shell = CreateObject("WScript.Shell")
 Set fso   = CreateObject("Scripting.FileSystemObject")
-Set wmi   = GetObject("winmgmts:\.\root\cimv2")
+' WMI connection with retry — handles boot race condition
+Dim wmiConnected, retryCount, maxRetries
+wmiConnected = False
+maxRetries = 5
+retryCount = 0
+
+Do While Not wmiConnected And retryCount < maxRetries
+    On Error Resume Next
+    Set wmi = GetObject("winmgmts:\\.\root\cimv2")
+    If Err.Number = 0 Then
+        wmiConnected = True
+        On Error GoTo 0
+    Else
+        Err.Clear
+        On Error GoTo 0
+        retryCount = retryCount + 1
+        If retryCount < maxRetries Then
+            WScript.Sleep 5000
+        End If
+    End If
+Loop
+
+If Not wmiConnected Then
+    WScript.Echo "Error: Cannot connect to WMI (root\cimv2). Exiting."
+    WScript.Quit 1
+End If
 
 ' -- AI tool processes to watch -----------------------------------------
 Dim AI_TOOLS
@@ -56,13 +81,16 @@ pidFilePath = shell.ExpandEnvironmentStrings("%TEMP%") & "\" & pidFileName
 Function IsAnyAiToolRunning()
     Dim proc, anyRunning
     anyRunning = False
+    On Error Resume Next
     For Each tool In AI_TOOLS
         Set proc = wmi.ExecQuery("SELECT * FROM Win32_Process WHERE Name='" & tool & "'")
-        If proc.Count > 0 Then
+        If Err.Number = 0 And proc.Count > 0 Then
             anyRunning = True
             Exit For
         End If
+        Err.Clear
     Next
+    On Error GoTo 0
     IsAnyAiToolRunning = anyRunning
 End Function
 
@@ -96,20 +124,23 @@ Do While True
             Dim proc
             Set proc = wmi.Get("Win32_Process.Handle='" & pid & "'")
             If Err.Number <> 0 Then
-                ' PID might be stale - find any python running our script
+                Err.Clear
                 Dim procs
                 Set procs = wmi.ExecQuery("SELECT * FROM Win32_Process WHERE Name='python.exe' AND CommandLine LIKE '%vision_mcp_server%'")
-                For Each p In procs
-                    p.Terminate()
-                Next
+                If Err.Number = 0 Then
+                    For Each p In procs
+                        p.Terminate()
+                    Next
+                End If
+                Err.Clear
             Else
                 proc.Terminate()
             End If
-            On Error Goto 0
+            On Error GoTo 0
 
             On Error Resume Next
             fso.DeleteFile pidFilePath, True
-            On Error Goto 0
+            On Error GoTo 0
         End If
     End If
 
