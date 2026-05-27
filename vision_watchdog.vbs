@@ -4,11 +4,26 @@
 ' Licensed under GPLv3 — see LICENSE.
 '
 ' Monitors for ANY AI coding assistant process via WMI every 10 seconds.
-' When a supported tool runs -> launches vision MCP server (hidden, no window).
-' When all tools exit -> kills child process, cleans up PID file.
+' When ANY supported tool runs -> launches vision MCP server (hidden, no window).
+' When ALL tools exit -> kills child process, cleans up PID file.
 '
-' Supported tools: opencode.exe, claude.exe, cursor.exe, windsurf.exe,
-'                  aider.exe, continue.exe, code.exe, antigravity.exe
+' Supported tools (13 monitored processes):
+'   opencode.exe       — OpenCode CLI/Desktop
+'   claude.exe         — Claude Code / Claude Desktop
+'   cursor.exe         — Cursor AI editor
+'   windsurf.exe       — Windsurf AI editor
+'   aider.exe          — Aider AI pair programming
+'   continue.exe       — Continue.dev
+'   code.exe           — VS Code / VS Studio Code
+'   vscode.exe         — VSCode variant (some forks)
+'   codium.exe         — VSCodium (open-source VS Code fork)
+'   studio.exe         — Various Studio AI editors
+'   antigravity.exe    — Antigravity 1.x / 2.x (Google AI IDE)
+'   claudecode.exe     — Claude Code CLI variants
+'   ghcopilot.exe      — GitHub Copilot CLI
+'
+' Auto-start with Windows (Task Scheduler):
+'   schtasks /create /tn "vision-tool-watchdog" /tr "wscript.exe //nologo \"%PATH%\vision_watchdog.vbs\"" /sc onstart /delay 0000:30 /ru %USERNAME% /f
 '
 ' Usage:
 '   wscript.exe //nologo vision_watchdog.vbs
@@ -50,6 +65,7 @@ If Not wmiConnected Then
 End If
 
 ' -- AI tool processes to watch -----------------------------------------
+' Add ANY process name here. WMI queries are case-insensitive.
 Dim AI_TOOLS
 AI_TOOLS = Array( _
     "opencode.exe", _
@@ -59,7 +75,12 @@ AI_TOOLS = Array( _
     "aider.exe", _
     "continue.exe", _
     "code.exe", _
-    "antigravity.exe" _
+    "vscode.exe", _
+    "codium.exe", _
+    "studio.exe", _
+    "antigravity.exe", _
+    "claudecode.exe", _
+    "ghcopilot.exe" _
 )
 
 ' -- Parse arguments ----------------------------------------------------

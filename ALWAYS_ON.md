@@ -28,3 +28,25 @@ and `analyze_video` tools for image and video analysis.
 5. **Be thorough.** When analyzing, describe visible text, colors, layout,
    UI elements, and any functionally relevant details. For videos, describe
    actions and scene changes.
+
+## Supported tools
+
+This rule applies in **ALL** AI coding assistants:
+
+| Tool | Process | Status |
+|------|---------|--------|
+| **OpenCode** | `opencode.exe` | ✅ Always-on via MCP |
+| **Claude Code / Claude Desktop** | `claude.exe` | ✅ Always-on via MCP |
+| **Cursor** | `cursor.exe` | ✅ Always-on via MCP |
+| **Windsurf** | `windsurf.exe` | ✅ Always-on via MCP |
+| **Aider** | `aider.exe` | ✅ Always-on via MCP |
+| **Continue.dev** | `continue.exe` | ✅ Always-on via MCP |
+| **VS Code / VS Studio Code** | `code.exe` | ✅ Always-on via MCP (`mcp.json`) |
+| **VSCodium** | `codium.exe` | ✅ Always-on via MCP |
+| **Antigravity 1.x / 2.x** | `antigravity.exe` | ✅ Always-on via MCP |
+| **GitHub Copilot CLI** | `ghcopilot.exe` | ✅ Always-on via MCP |
+| **Any MCP-compatible tool** | *any* | ✅ Always-on via MCP |
+
+The invisible watchdog (`vision_watchdog.vbs` / `vision_watchdog.exe`) monitors
+**all 13 process names** and starts/stops the vision MCP server automatically —
+no manual steps needed.

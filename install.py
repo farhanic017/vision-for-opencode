@@ -208,7 +208,7 @@ def detect_client():
     if cursor_path and os.path.isfile(cursor_path):
         clients.append(("Cursor", cursor_path))
 
-    # Check VSCode (native MCP support)
+    # Check VSCode (native MCP support) — also covers VS Studio Code
     if os.name == "nt":
         vscode_path = os.path.expanduser("~/AppData/Roaming/Code/User/mcp.json")
     elif sys.platform == "darwin":
@@ -217,14 +217,36 @@ def detect_client():
         vscode_path = os.path.expanduser("~/.config/Code/User/mcp.json")
     if os.path.isfile(vscode_path):
         clients.append(("VSCode", vscode_path))
+    else:
+        # Also check for VSCode portable / other installs
+        for alt in [os.path.expanduser("~/.vscode/mcp.json"), os.path.expanduser("~/.config/VSCode/User/mcp.json")]:
+            if os.path.isfile(alt):
+                clients.append(("VSCode", alt))
+                break
 
-    # Check Antigravity (Google AI-first IDE)
+    # Check VSCodium (open-source VS Code fork)
+    if os.name == "nt":
+        vscodium_path = os.path.expanduser("~/AppData/Roaming/VSCodium/User/mcp.json")
+    else:
+        vscodium_path = os.path.expanduser("~/.config/VSCodium/User/mcp.json")
+    if os.path.isfile(vscodium_path):
+        clients.append(("VSCodium", vscodium_path))
+
+    # Check Antigravity 2.x (Google AI-first IDE, uses Gemini branding)
     if os.name == "nt":
         anti_path = os.path.expanduser("~\\.gemini\\antigravity\\mcp_config.json")
     else:
         anti_path = os.path.expanduser("~/.gemini/antigravity/mcp_config.json")
     if os.path.isfile(anti_path):
         clients.append(("Antigravity", anti_path))
+
+    # Check Antigravity 1.x (VS Code fork, uses standard VS Code-like paths)
+    if os.name == "nt":
+        anti1_path = os.path.expanduser("~/AppData/Roaming/Antigravity/User/mcp.json")
+    else:
+        anti1_path = os.path.expanduser("~/.config/Antigravity/User/mcp.json")
+    if os.path.isfile(anti1_path):
+        clients.append(("Antigravity 1.x", anti1_path))
 
     return clients
 
@@ -254,7 +276,7 @@ def step_configure(target_dir, auto=False):
                     "command": [sys.executable, os.path.join(target_dir, "vision_mcp_server.py")],
                     "enabled": True,
                 }
-            elif name == "VSCode":
+            elif name in ("VSCode", "VSCodium", "Antigravity 1.x"):
                 mcp_key = "servers"
                 server_entry = {
                     "type": "stdio",
@@ -326,6 +348,15 @@ def step_configure(target_dir, auto=False):
                         json.dump(config, f, indent=2)
                     print(f"  {green('✔')} Configured vision-tool as always-on for dynamic-skill-loader")
 
+            # ── Always-on for VSCode / VSCodium / Antigravity 1.x ──
+            # These tools don't have an "instructions" array like opencode,
+            # but the MCP tools themselves are always available.
+            # For project-level always-on behavior, the user can add
+            # ALWAYS_ON.md as a GitHub copilot instructions file.
+            if name in ("VSCode", "VSCodium", "Antigravity 1.x"):
+                print(f"  {green(safe('✔'))} vision-tool MCP tools always available in {name}")
+                print(f"     ({mcp_key} -> vision-tool with analyze_image/analyze_video)")
+
 
 def step_watchdog(target_dir, auto=False):
     """Offer to install invisible watchdog (Windows only)."""
@@ -334,24 +365,55 @@ def step_watchdog(target_dir, auto=False):
 
     print()
     print(cyan("  ── Invisible background watchdog (Windows only) ──"))
-    print("  Keeps the vision server running silently when opencode is active.")
-    print("  Auto-starts with Windows, auto-kills when opencode exits.")
+    print("  Keeps the vision server running silently while ANY AI tool is active.")
+    print("  Monitors all 13 supported tools (opencode, claude, cursor, windsurf,")
+    print("  aider, continue, VSCode, VSCodium, Antigravity 1.x/2.x, gh-copilot).")
+    print("  Auto-starts with Windows, auto-kills when all tools exit.")
 
-    if auto or confirm("  Install invisible watchdog (add to startup)?"):
+    if auto or confirm("  Install invisible watchdog (add to startup + Task Scheduler)?"):
         vbs_path = os.path.join(target_dir, "vision_watchdog.vbs")
+        exe_path = os.path.join(target_dir, "vision_watchdog.exe")
+        cs_path = os.path.join(target_dir, "vision_watchdog.cs")
         if os.path.isfile(vbs_path):
-            # Add to Windows startup folder
+            # ── Option A: Try to compile C# EXE (zero-flash) ──
+            watchdog_exe = vbs_path
+            if os.path.isfile(cs_path):
+                try:
+                    run(f"csc.exe /target:winexe /out:\"{exe_path}\" \"{cs_path}\"", check=False)
+                    if os.path.isfile(exe_path):
+                        watchdog_exe = exe_path
+                        print(f"  {green('✔')} Compiled zero-flash watchdog (vision_watchdog.exe)")
+                except Exception:
+                    pass
+
+            # ── Option B: Task Scheduler (reliable boot start) ──
+            task_name = "vision-tool-watchdog"
+            try:
+                # Use single quotes for /tr value to avoid schtasks quoting issues
+                task_cmd = (f'schtasks /create /tn "{task_name}" '
+                           f'/tr "{watchdog_exe}" '
+                           f'/sc onstart /delay 0000:30 '
+                           f'/ru "{os.environ.get("USERNAME", "SYSTEM")}" '
+                           f'/f')
+                run(task_cmd, check=False)
+                print(f"  {green('✔')} Added Task Scheduler task (runs at Windows boot)")
+                print(f"     Task name: {task_name}")
+            except Exception as e:
+                print(f"  {yellow('⚠')} Task Scheduler failed: {e}")
+                print(f"  {yellow('⚠')} Falling back to Startup folder...")
+
+            # ── Option C: Startup folder (fallback) ──
             startup_dir = os.path.expanduser("~/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup")
             if os.path.isdir(startup_dir):
                 lnk_path = os.path.join(startup_dir, "vision-tool.url")
                 with open(lnk_path, "w") as f:
                     f.write("[InternetShortcut]\n")
-                    f.write(f"URL=file:///{vbs_path.replace(' ', '%20')}\n")
-                print(f"  {green('✔')} Added to Windows Startup")
+                    f.write(f"URL=file:///{watchdog_exe.replace(' ', '%20')}\n")
+                print(f"  {green('✔')} Added to Windows Startup folder")
                 print(f"     ({lnk_path})")
 
-                # Also show how to start immediately
-                print(f"  Run now: wscript.exe //nologo \"{vbs_path}\"")
+            # Show how to run now
+            print(f"  Run now: wscript.exe //nologo \"{vbs_path}\"")
 
 
 # ── main ─────────────────────────────────────────────────────────────────

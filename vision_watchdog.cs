@@ -9,12 +9,15 @@
  *
  * Runs hidden (no console, no window, no taskbar icon).
  * Same logic as vision_watchdog.vbs — WMI polling, PID file management.
- * Monitors ALL AI coding tools, not just opencode.
+ * Monitors ALL AI coding tools (13 process names), not just opencode.
  *
  * Usage:
  *   vision_watchdog.exe
  *   vision_watchdog.exe "python C:\path\to\vision_mcp_server.py --http 3789"
  *   vision_watchdog.exe "my_command" "my_pid_file.pid"
+ *
+ * Auto-start with Windows (Task Scheduler):
+ *   schtasks /create /tn "vision-tool-watchdog" /tr "\"C:\path\to\vision_watchdog.exe\"" /sc onstart /delay 0000:30 /ru %USERNAME% /f
  */
 
 using System;
@@ -25,6 +28,8 @@ using System.Threading;
 
 class VisionWatchdog
 {
+    // Monitored AI tool processes — add any new process name here.
+    // WMI queries are case-insensitive.
     static readonly string[] AI_TOOLS = new string[]
     {
         "opencode.exe",
@@ -34,7 +39,12 @@ class VisionWatchdog
         "aider.exe",
         "continue.exe",
         "code.exe",
-        "antigravity.exe"
+        "vscode.exe",
+        "codium.exe",
+        "studio.exe",
+        "antigravity.exe",
+        "claudecode.exe",
+        "ghcopilot.exe"
     };
 
     static void Main(string[] args)

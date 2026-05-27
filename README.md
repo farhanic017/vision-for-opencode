@@ -29,10 +29,11 @@ only activates on certain keywords. Once installed:
 2. **The MCP server** (`vision_mcp_server.py`) exposes `analyze_image` and
    `analyze_video` as first-class tools available at all times.
 
-3. **The invisible watchdog** (`vision_watchdog.vbs`) monitors for ALL
-   supported AI tools (opencode, Claude, Cursor, Windsurf, Aider, Continue,
-   VSCode, Antigravity) and starts/stops the vision server automatically —
-   no manual steps.
+3. **The invisible watchdog** (`vision_watchdog.vbs` / `vision_watchdog.exe`)
+   monitors for ALL 13 supported AI tool process names (opencode, Claude,
+   Cursor, Windsurf, Aider, Continue, VSCode, VSCodium, Antigravity 1.x/2.x,
+   GitHub Copilot CLI, and more) and starts/stops the vision server
+   automatically — no manual steps.
 
 4. **The dynamic-skill-loader** integration marks vision-tool as
    `alwaysOn`, so it's never filtered by keyword triggers.
@@ -154,7 +155,7 @@ python /path/to/vision_proxy.py video.mp4 "Describe the gameplay"
 
 Your AI just needs to call this as a bash/terminal command.
 
-### 2. MCP server (OpenCode, Claude Desktop, Cursor, Windsurf, Continue.dev, VSCode, Antigravity)
+### 2. MCP server (OpenCode, Claude Desktop, Cursor, Windsurf, Continue.dev, VSCode, VSCodium, Antigravity 1.x/2.x)
 
 Add the MCP server to your client's config. This exposes `analyze_image` and
 `analyze_video` as first-class MCP tools that any agent can call directly.
@@ -215,9 +216,46 @@ VSCode uses the `"servers"` key (not `"mcpServers"`). Add to your user or worksp
 
 Open via Command Palette: `MCP: Open User Configuration` or `MCP: Open Workspace Folder MCP Configuration`.
 
-#### Antigravity (Google AI-first IDE)
+#### VSCodium (open-source VS Code fork)
 
-Antigravity uses standard `mcpServers` format. Add to `mcp_config.json`:
+VSCodium uses the same `mcp.json` format as VSCode:
+
+```json
+{
+  "servers": {
+    "vision-tool": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["path/to/vision_mcp_server.py"]
+    }
+  }
+}
+```
+
+**Config path:** `%APPDATA%\VSCodium\User\mcp.json` (Windows) or `~/.config/VSCodium/User/mcp.json` (macOS/Linux).
+
+#### Antigravity 1.x (VS Code fork)
+
+Antigravity 1.x (the older VS Code fork with full extension support) uses
+the same native MCP format as VSCode:
+
+```json
+{
+  "servers": {
+    "vision-tool": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["path/to/vision_mcp_server.py"]
+    }
+  }
+}
+```
+
+**Config path:** `%APPDATA%\Antigravity\User\mcp.json` (Windows) or `~/.config/Antigravity/User/mcp.json` (macOS/Linux).
+
+#### Antigravity 2.x (Google AI-first IDE)
+
+Antigravity 2.x uses standard `mcpServers` format. Add to `mcp_config.json`:
 
 ```json
 {
@@ -299,8 +337,18 @@ For a zero-setup experience, the watchdog auto-starts the vision MCP server
 whenever **any** supported AI coding tool runs and kills it when all tools
 exit — all hidden, no windows, no taskbar icons.
 
-**Monitored tools:** opencode.exe, claude.exe, cursor.exe, windsurf.exe,
-aider.exe, continue.exe, code.exe (VSCode), antigravity.exe
+**Monitored tools (13 process names):** opencode.exe, claude.exe, cursor.exe,
+windsurf.exe, aider.exe, continue.exe, code.exe (VSCode), vscode.exe,
+codium.exe (VSCodium), studio.exe, antigravity.exe (Antigravity 1.x/2.x),
+claudecode.exe, ghcopilot.exe (GitHub Copilot CLI)
+
+**How it starts with Windows:**
+
+- **Task Scheduler** (recommended): The watchdog runs at Windows boot via
+  `schtasks /create /tn "vision-tool-watchdog" /tr "..." /sc onstart /delay 0000:30`
+- **Startup folder** (fallback): A shortcut is added to `shell:startup`
+- **Zero-flash EXE**: The C# version (`vision_watchdog.exe`) has no console,
+  no window, no taskbar icon — compiled with `csc.exe /target:winexe`
 
 **How it works:**
 
@@ -322,14 +370,21 @@ Every 10s polls WMI: "Is any AI coding tool running?"
 #### Quick start
 
 ```cmd
-:: Start the watchdog (double-click or run at login)
+:: Start the watchdog (double-click)
 wscript.exe //nologo "C:\path\to\vision_watchdog.vbs"
 ```
 
-Add it to your startup folder (`shell:startup`) so it runs at every boot:
+Add to Task Scheduler so it starts automatically at every boot:
 
 ```cmd
-:: Copy shortcut to Startup folder
+:: Create scheduled task (runs at startup, 30-second delay)
+schtasks /create /tn "vision-tool-watchdog" /tr "wscript.exe //nologo \"C:\path\to\vision_watchdog.vbs\"" /sc onstart /delay 0000:30 /ru %USERNAME% /f
+```
+
+Or add to startup folder (`shell:startup`):
+
+```cmd
+:: Add to Startup folder
 powershell -Command "$wshell = New-Object -ComObject WScript.Shell; $shortcut = $wshell.CreateShortcut((Join-Path $wshell.SpecialFolders('Startup') 'vision-tool.lnk')); $shortcut.TargetPath = 'wscript.exe'; $shortcut.Arguments = '//nologo \"C:\path\to\vision_watchdog.vbs\"'; $shortcut.WindowStyle = 7; $shortcut.Save()"
 ```
 
