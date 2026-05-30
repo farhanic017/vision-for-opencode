@@ -26,10 +26,11 @@ import getpass
 import subprocess
 
 # Import shared config path/save from vision_proxy
-_vp_config_dir = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "vision-tool")
 _vp_script_dir = os.path.dirname(os.path.abspath(__file__))
-CONFIG_PATH = os.path.join(_vp_config_dir, "config.json")
-CONFIG_PATH_LOCAL = os.path.join(_vp_script_dir, "config.json")
+sys.path.insert(0, _vp_script_dir)
+import vision_proxy as _vp
+CONFIG_PATH = _vp.CONFIG_PATH
+CONFIG_PATH_LOCAL = _vp.CONFIG_PATH_LOCAL
 
 # ── helpers ──────────────────────────────────────────────────────────────
 
@@ -199,18 +200,10 @@ PROVIDER_LABELS = [
 ]
 
 
-def _find_config():
-    """Check local path first (explicit user override), then AppData (persistent)."""
-    for p in (CONFIG_PATH_LOCAL, CONFIG_PATH):
-        if os.path.isfile(p):
-            return p
-    return CONFIG_PATH
-
-
 def show_keys():
     """Show current key status."""
     existing = {}
-    cfg_path = _find_config()
+    cfg_path = _vp._find_config()
     if os.path.isfile(cfg_path):
         try:
             with open(cfg_path) as f:
@@ -232,7 +225,7 @@ def show_keys():
 def enter_keys():
     """Prompt user for API keys, validate, and save."""
     existing = {}
-    cfg_path = _find_config()
+    cfg_path = _vp._find_config()
     if os.path.isfile(cfg_path):
         try:
             with open(cfg_path) as f:
@@ -302,18 +295,20 @@ def enter_keys():
     }
     securesave(config)
 
-    # Verify save succeeded (check AppData path)
+    # Verify save succeeded (check either path)
     verified = False
-    if os.path.isfile(CONFIG_PATH):
-        try:
-            with open(CONFIG_PATH) as f:
-                saved = json.load(f)
-            saved_keys = [k for k in ("GEMINI_API_KEY", "OPENROUTER_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY") if saved.get(k, "")]
-            verified = len(saved_keys) > 0
-            if verified:
-                print(f"  {green('✔')} Keys verified: {', '.join(saved_keys)}")
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"  {yellow('⚠')} Save verification failed: {e}")
+    for verify_path in (CONFIG_PATH, CONFIG_PATH_LOCAL):
+        if os.path.isfile(verify_path):
+            try:
+                with open(verify_path) as f:
+                    saved = json.load(f)
+                saved_keys = [k for k in ("GEMINI_API_KEY", "OPENROUTER_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY") if saved.get(k, "")]
+                if len(saved_keys) > 0:
+                    verified = True
+                    print(f"  {green('✔')} Keys verified: {', '.join(saved_keys)}")
+                    break
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"  {yellow('⚠')} Save verification failed for {verify_path}: {e}")
 
     print()
     if verified:
@@ -323,7 +318,7 @@ def enter_keys():
         print()
         print('  Tell your AI: "analyse this image" or "look at this video"')
     else:
-        print(yellow(f"  Wrote to {CONFIG_PATH} but verification failed."))
+        print(yellow(f"  Keys were written but could not be verified."))
         print(yellow("  Try running: python setup.py --add-key"))
     print()
 
@@ -342,7 +337,7 @@ def choose_option():
     print("Keys are stored in config.json (gitignored, locked to you only).")
     print()
 
-    if os.path.isfile(_find_config()):
+    if os.path.isfile(_vp._find_config()):
         show_keys()
         print()
 
@@ -369,7 +364,7 @@ def choose_option():
 def setup_later():
     """Create blank config with placeholders and warn user."""
     existing = {}
-    cfg_path = _find_config()
+    cfg_path = _vp._find_config()
     if os.path.isfile(cfg_path):
         try:
             with open(cfg_path) as f:
@@ -406,12 +401,7 @@ def setup_later():
 
 
 def main():
-    # Force UTF-8 output (handles Windows cp1252 box-drawing chars)
-    if sys.stdout is not None and hasattr(sys.stdout, 'buffer') and sys.stdout.buffer is not None:
-        try:
-            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-        except (ValueError, TypeError, AttributeError):
-            pass
+    _vp._wrap_utf8()
 
     add_key_mode = "--add-key" in sys.argv
 

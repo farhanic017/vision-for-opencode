@@ -59,20 +59,24 @@ import shutil
 # ── Output: force UTF-8 (safe wrap, handles piped/closed streams) ──────
 _OLD_STDOUT_WRAPPER = None
 _OLD_STDERR_WRAPPER = None
-if sys.stdout is not None and hasattr(sys.stdout, 'buffer') and sys.stdout.buffer is not None:
-    try:
-        _OLD_STDOUT_WRAPPER = sys.stdout
-        _BASE_BUF = _OLD_STDOUT_WRAPPER.detach()  # detach so GC won't close buffer
-        sys.stdout = io.TextIOWrapper(_BASE_BUF, encoding="utf-8", errors="replace")
-    except (ValueError, TypeError, AttributeError):
-        pass
-if sys.stderr is not None and hasattr(sys.stderr, 'buffer') and sys.stderr.buffer is not None:
-    try:
-        _OLD_STDERR_WRAPPER = sys.stderr
-        _BASE_BUF_ERR = _OLD_STDERR_WRAPPER.detach()
-        sys.stderr = io.TextIOWrapper(_BASE_BUF_ERR, encoding="utf-8", errors="replace")
-    except (ValueError, TypeError, AttributeError):
-        pass
+
+def _wrap_utf8():
+    """Wrap stdout/stderr in UTF-8 TextIOWrapper. Safe to call multiple times."""
+    global _OLD_STDOUT_WRAPPER, _OLD_STDERR_WRAPPER
+    if sys.stdout is not None and hasattr(sys.stdout, 'buffer') and sys.stdout.buffer is not None and _OLD_STDOUT_WRAPPER is None:
+        try:
+            _OLD_STDOUT_WRAPPER = sys.stdout
+            _BASE_BUF = _OLD_STDOUT_WRAPPER.detach()
+            sys.stdout = io.TextIOWrapper(_BASE_BUF, encoding="utf-8", errors="replace")
+        except (ValueError, TypeError, AttributeError):
+            pass
+    if sys.stderr is not None and hasattr(sys.stderr, 'buffer') and sys.stderr.buffer is not None and _OLD_STDERR_WRAPPER is None:
+        try:
+            _OLD_STDERR_WRAPPER = sys.stderr
+            _BASE_BUF_ERR = _OLD_STDERR_WRAPPER.detach()
+            sys.stderr = io.TextIOWrapper(_BASE_BUF_ERR, encoding="utf-8", errors="replace")
+        except (ValueError, TypeError, AttributeError):
+            pass
 
 # ── Config loader ────────────────────────────────────────────────────────
 # Primary: %APPDATA%/vision-tool/config.json (persists across reinstalls)
@@ -685,6 +689,7 @@ def _insert_model_strategies(strategies, model, kind, *args):
 # ── CLI entry point ─────────────────────────────────────────────────────
 
 def main():
+    _wrap_utf8()
     import argparse
     parser = argparse.ArgumentParser(
         description="Analyse images and videos using AI vision models.",

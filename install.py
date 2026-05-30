@@ -145,21 +145,24 @@ def step_setup(target_dir):
         spec.loader.exec_module(mod)
         sys.path.pop(0)
         mod.enter_keys()
-        # Verify save worked
+        # Verify save worked (check both paths)
         config_path = os.path.join(target_dir, "config.json")
-        if os.path.isfile(config_path):
-            try:
-                with open(config_path) as f:
-                    cfg = json.load(f)
-                has_keys = any(cfg.get(k, "") for k in ("GEMINI_API_KEY", "OPENROUTER_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"))
-                if has_keys:
-                    print(f"  {green('✔')} API keys saved and verified")
-                else:
-                    print(f"  {yellow('⚠')} Config file exists but no keys found")
-            except (json.JSONDecodeError, IOError) as e:
-                print(f"  {yellow('⚠')} Could not verify keys: {e}")
+        appdata_cfg = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "vision-tool", "config.json")
+        found = False
+        for p in (config_path, appdata_cfg):
+            if os.path.isfile(p):
+                try:
+                    with open(p) as f:
+                        cfg = json.load(f)
+                    if any(cfg.get(k, "") for k in ("GEMINI_API_KEY", "OPENROUTER_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY")):
+                        found = True
+                        break
+                except (json.JSONDecodeError, IOError):
+                    pass
+        if found:
+            print(f"  {green('✔')} API keys saved and verified")
         else:
-            print(f"  {yellow('⚠')} Config file not found after setup")
+            print(f"  {yellow('⚠')} Config file not found or no keys detected after setup")
 
 
 def detect_client():
@@ -479,8 +482,10 @@ def main():
     # ── 5. API keys ─────────────────────────────────────────────
     print(bold("  Step 5: Configure API keys"))
     if args.auto:
-        config_path = os.path.join(target_dir, "config.json")
-        if not os.path.isfile(config_path):
+        local_cfg = os.path.join(target_dir, "config.json")
+        appdata_cfg = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "vision-tool", "config.json")
+        both_missing = not os.path.isfile(local_cfg) and not os.path.isfile(appdata_cfg)
+        if both_missing:
             print(f"  {yellow('⚠')} --auto mode: skipping setup. Run 'python setup.py' or 'python setup.py --add-key' manually.")
     else:
         step_setup(target_dir)
@@ -497,18 +502,24 @@ def main():
     print(f"    {sys.executable} \"{os.path.join(target_dir, 'vision_proxy.py')}\" <image_path>")
     print()
     if not args.auto:
+        # Check both local and AppData config for keys
         config_path = os.path.join(target_dir, "config.json")
-        if os.path.isfile(config_path):
-            try:
-                with open(config_path) as f:
-                    cfg = json.load(f)
-                has_keys = any(v for v in (cfg.get("GEMINI_API_KEY"), cfg.get("OPENROUTER_API_KEY")))
-                if not has_keys:
-                    print(yellow("  Keys not configured yet. Run when ready:"))
-                    print(f"    python \"{os.path.join(target_dir, 'setup.py')}\" --add-key")
-                    print()
-            except (json.JSONDecodeError, IOError):
-                pass
+        appdata_cfg = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "vision-tool", "config.json")
+        has_keys = False
+        for p in (config_path, appdata_cfg):
+            if os.path.isfile(p):
+                try:
+                    with open(p) as f:
+                        cfg = json.load(f)
+                    has_keys = any(v for v in (cfg.get("GEMINI_API_KEY"), cfg.get("OPENROUTER_API_KEY")))
+                    if has_keys:
+                        break
+                except (json.JSONDecodeError, IOError):
+                    pass
+        if not has_keys:
+            print(yellow("  Keys not configured yet. Run when ready:"))
+            print(f"    python \"{os.path.join(target_dir, 'setup.py')}\" --add-key")
+            print()
 
 
 if __name__ == "__main__":

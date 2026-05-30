@@ -35,7 +35,7 @@ _APPDATA_CFG_LOCAL = os.path.join(_TMP_DIR, 'appdata_config.json')
 s.CONFIG_PATH_LOCAL = _TMP_CFG
 s.CONFIG_PATH = _APPDATA_CFG_LOCAL
 if hasattr(vp, 'CONFIG_PATH'):
-    vp.CONFIG_PATH = _TMP_CFG
+    vp.CONFIG_PATH = _APPDATA_CFG_LOCAL
 if hasattr(vp, 'CONFIG_PATH_LOCAL'):
     vp.CONFIG_PATH_LOCAL = _TMP_CFG
 # Also patch vision_mcp_server if loaded
@@ -259,6 +259,38 @@ for p in ('config.json', os.path.join(os.environ.get('APPDATA', os.path.expandus
     if os.path.exists(p): os.remove(p)
 s.securesave({'GEMINI_API_KEY': '', 'OPENROUTER_API_KEY': ''})
 check('securesave: empty keys', os.path.isfile('config.json'))
+
+# 17b. securesave writes to BOTH paths
+for p in ('config.json', os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), 'vision-tool', 'config.json')):
+    if os.path.exists(p): os.remove(p)
+s.securesave({'GEMINI_API_KEY': 'gk_dual', 'OPENROUTER_API_KEY': 'ork_dual'})
+check('securesave: writes CONFIG_PATH_LOCAL', os.path.isfile(s.CONFIG_PATH_LOCAL))
+check('securesave: writes CONFIG_PATH', os.path.isfile(s.CONFIG_PATH))
+local_saved = json.load(open(s.CONFIG_PATH_LOCAL))
+appdata_saved = json.load(open(s.CONFIG_PATH))
+check('securesave: local has key', local_saved.get('GEMINI_API_KEY') == 'gk_dual')
+check('securesave: appdata has key', appdata_saved.get('GEMINI_API_KEY') == 'gk_dual')
+
+# 17c. _find_config priority: local > AppData
+os.remove(s.CONFIG_PATH)
+if os.path.isfile(s.CONFIG_PATH_LOCAL):
+    found = vp._find_config()
+    check('find_config: returns local when both exist', found == s.CONFIG_PATH_LOCAL)
+
+# 17d. _find_config fallback: uses AppData when local missing
+# Re-create AppData test file, delete local
+with open(s.CONFIG_PATH, 'w') as f:
+    json.dump({'GEMINI_API_KEY': 'appdata_only'}, f)
+if os.path.isfile(s.CONFIG_PATH_LOCAL):
+    os.remove(s.CONFIG_PATH_LOCAL)
+found = vp._find_config()
+check('find_config: returns AppData when local missing', found == s.CONFIG_PATH)
+with open(found) as f:
+    d = json.load(f)
+check('find_config: reads AppData key', d.get('GEMINI_API_KEY') == 'appdata_only')
+# Clean up test config files
+for test_cfg in (s.CONFIG_PATH_LOCAL, s.CONFIG_PATH):
+    if os.path.isfile(test_cfg): os.remove(test_cfg)
 
 # 18. choose_option — already tested via subprocess in tests 1-3 (subprocess handles UTF-8). 
 # Direct call would crash on cp1252 due to box-drawing chars in setup.py.
